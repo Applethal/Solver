@@ -1,6 +1,13 @@
 #include "core.h"
+#include <stdio.h>
+#include <float.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <stdbool.h>
+#include <time.h>
 
-// I was planning to make an API out of this code logic hence why I defined some limits on what the user can give to the code, feel free to adjust these
+// I was planning to make an API out of this code logic for an online interface hence why I defined some limits on what the user can give to the code, feel free to adjust these
 #define MAX_LINE_LENGTH 1024 
 #define MAX_VARS 2000
 #define MAX_CONSTRAINTS 2000 
@@ -46,6 +53,73 @@ void PrintHelp(){
   printf("     Please report any bugs in the issues page in https://github.com/Applethal/RSA\n\n");
 }
 
+void SolverLoop(int argc, char *argv[]){
+  clock_t begin = clock(); 
+  int Debug = 0;
+
+  if (argc < 2) {
+    PrintHelp();
+    exit(0);
+  }
+  if (argc >= 3 && strcmp(argv[2], "-Debug") == 0) {
+    Debug = 1;
+  }
+
+  FILE *file = fopen(argv[1], "r");
+  if (file == NULL) {
+    printf("Cannot open file\n");
+    exit(1);
+  }
+
+  Model *model = ReadCsv(file);
+
+
+
+
+  printf("Starting solver, to enable iterative debugging add the flag '-Debug' as an argument after the file path. \n"); 
+
+  printf("\n");
+
+
+
+  if (Debug == 1) {
+
+
+    RevisedSimplex_Debug(model);
+
+  } else {
+    if (model->integer_vars_count > 0) {
+      printf("Integer programming detected \n");
+      for (int i = 0; i < model->num_vars; i++) {
+        if (model->coeffs[i].type == INTEGER ) {
+          printf("Var: %i is of type INTEGER and its integrity constraint is located in %i \n", i, model->coeffs[i].constraint_idx);
+
+        }
+      }
+    }
+    else {
+      RevisedSimplex(model); 
+
+    }
+
+  } 
+
+  printf("\n");
+  printf("Objective function: %f \n", model->objective_function);
+  clock_t end = clock();
+
+  printf("Solving time: %f seconds\n", (double)(end - begin) / CLOCKS_PER_SEC);
+
+  fclose(file);
+  FreeModel(model);
+
+
+
+}
+
+
+
+
 Model *ReadCsv(FILE *csvfile)
 {
   Model *model = (Model *)malloc(sizeof(Model));
@@ -75,15 +149,15 @@ Model *ReadCsv(FILE *csvfile)
     return NULL;
   }
 
-    if (strcmp(token, "MINIMIZE") == 0) {
-  model->objective = 0;
-} else if (strcmp(token, "MAXIMIZE") == 0) {
-  model->objective = 1;
-} else {
-  fprintf(stderr, "Error: Invalid objective type (expected MINIMIZE or MAXIMIZE)\n");
-  free(model);
-  return NULL;
-}
+  if (strcmp(token, "MINIMIZE") == 0) {
+    model->objective = 0;
+  } else if (strcmp(token, "MAXIMIZE") == 0) {
+    model->objective = 1;
+  } else {
+    fprintf(stderr, "Error: Invalid objective type (expected MINIMIZE or MAXIMIZE)\n");
+    free(model);
+    return NULL;
+  }
   token = strtok(NULL, ",");
   if (!token) {
     fprintf(stderr, "Error: Missing variables count in header\n");
@@ -125,12 +199,23 @@ Model *ReadCsv(FILE *csvfile)
   // Allocate and parse coefficients
   model->coeffs = (Variable*)malloc(model->num_vars * sizeof(Variable));
   token = strtok(line, ",");
+  model->integer_vars_count = 0; 
   int idx = 0;
   while (token != NULL && idx < model->num_vars)
   {
-    model->coeffs[idx].value = atof(token);
-    model->coeffs[idx].type = STANDARD;
-    model->coeffs[idx].constraint_idx = 0; // dummy for now
+    // Check if token contains 'I' suffix 
+    char *i_marker = strchr(token, 'I');
+    if (i_marker != NULL) {
+      *i_marker = '\0'; 
+      model->coeffs[idx].value = atof(token);
+      model->coeffs[idx].type = INTEGER;
+      model->coeffs[idx].constraint_idx = model->num_constraints - model->integer_vars_count - 1;
+      model->integer_vars_count += 1;
+    } else {
+      model->coeffs[idx].value = atof(token);
+      model->coeffs[idx].type = STANDARD;
+      model->coeffs[idx].constraint_idx = 0;
+    }
     idx++;
     token = strtok(NULL, ",");
   }
@@ -236,7 +321,7 @@ Model *ReadCsv(FILE *csvfile)
       num_eq++;
     }
     else
-    {
+  {
       fprintf(stderr, "Error: Invalid operator '%s' in constraint %d\n", op, i);
       for (int j = 0; j < model->num_constraints; j++) {
         free(model->lhs_matrix[j]);
@@ -248,7 +333,7 @@ Model *ReadCsv(FILE *csvfile)
       free(model);
       return NULL;
     }
-     
+
     token = strtok(NULL, ",");
     if (token == NULL)
     {
@@ -275,11 +360,11 @@ Model *ReadCsv(FILE *csvfile)
   model->slacks_surplus_count = num_le + num_ge;
   model->artificials_count = num_eq + num_ge;
 
-  if (model->num_constraints > model->num_vars)
-  {
-    printf("Warning: More constraints than variables! The revised simplex algorithm works best when there are more variables than constraints!\n");
-  }
-
+  // if (model->num_constraints > model->num_vars)
+  // {
+  //   printf("Warning: More constraints than variables! The revised simplex algorithm works best when there are more variables than constraints!\n");
+  // }
+  //
   return model;
 }
 
@@ -363,7 +448,7 @@ void TransformModel(Model *model)
 
       model->lhs_matrix[i][surplus_col] = -1.0;
       model->lhs_matrix[i][artif_col] = 1.0;
-      
+
       model->coeffs[surplus_col].type = SLACK;
       model->coeffs[surplus_col].value = 0.0;
       model->coeffs[surplus_col].constraint_idx = 0; 
@@ -381,11 +466,11 @@ void TransformModel(Model *model)
       // Equality: add artificial variable
       int artif_col = artificial_col + artificial_idx;
       model->lhs_matrix[i][artif_col] = 1.0;
-      
+
       model->coeffs[artif_col].type = ARTIFICIAL;
       model->coeffs[artif_col].value = 0.0;
       model->coeffs[artif_col].constraint_idx = 0;
-      
+
       model->artificials_vector[artificial_idx] = artif_col;
       model->basics_vector[i] = artif_col;
 
@@ -393,18 +478,18 @@ void TransformModel(Model *model)
     }
   }
 
- 
+
   // Artificial values will get a value of 1. In previous versions, I gave them a value of max(coeffs) * 2 to penalize the objective function, now I can track them with their types
   int artificial_start = model->num_vars + model->slacks_surplus_count;
   for (int i = 0; i < model->artificials_count; i++)
   {
     if (model->objective == 1)
-    
+
     {
       model->coeffs[artificial_start + i].value = -1.0;
     }
     else
-    {
+  {
       model->coeffs[artificial_start + i].value = 1.0;
     }
   }
@@ -677,13 +762,13 @@ void RevisedSimplex_Debug(Model *model) {
   printf("Debug Mode: On\n");
   printf("Model after transformation:\n");
   if (model->objective == 0) {
-  printf("Objective function mode: MINIMIZE\n");
+    printf("Objective function mode: MINIMIZE\n");
 
   } else {
-  printf("Objective function mode: MAXIMIZE");
+    printf("Objective function mode: MAXIMIZE");
 
   }
-    printf("Number of variables: %d\n", model->num_vars);
+  printf("Number of variables: %d\n", model->num_vars);
   printf("Number of constraints: %d\n", model->num_constraints);
   printf("Objective coefficients:");
   for (int i = 0; i < model->num_vars; i++) {
@@ -977,15 +1062,15 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector)
 
 void FreeModel(Model *model)
 {
-  
-  
+
+
   size_t size = 0;
 
   size += sizeof(bool); // objective mode
   size += sizeof(int) * model->num_constraints * 2;
   size += sizeof(int) * model->num_vars;
-  
-  
+
+
   // variable struct
   size += sizeof(Variable) * model->num_vars; // struct
   size += sizeof(int) * model->num_vars; // type 
@@ -1048,7 +1133,7 @@ void ValidateModelPointers(Model *model)
     exit(1);
   }
 
-  
+
   if (!model->coeffs)
   {
     fprintf(stderr, "Fatal Error: model->coeffs is NULL.\n");

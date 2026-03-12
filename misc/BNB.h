@@ -3,17 +3,20 @@
 #include <RSA.h>
 
 
-#define INFEASIBLE 2
-#define INTEGER 1
-#define BRANCH 0 
-#define VISITED 3
+
+typedef enum {
+  INTEGER = 0,
+  INFEASIBLE = 1,
+  BRANCH = 2
+} Status;
+
 
 
 typedef struct Subproblem{
 
   int id;
   int variable; // contains the idx of the variable to be fixed
-  int status; // 1 = integer solution, 0 = branch, 2 = infeasible, 3 = already visited
+  Status status; // 1 = integer solution, 0 = branch, 2 = infeasible
 
 } Subproblem;
 

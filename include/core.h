@@ -1,7 +1,6 @@
 #ifndef CORE_H
 #define CORE_H
 
-#include <stddef.h>
 #include <stdio.h>
 #include <float.h>
 #include <stdlib.h>
@@ -12,15 +11,37 @@
 typedef enum {
   STANDARD = 1,
   ARTIFICIAL = 2,
-  SLACK = 3
+  SLACK = 3, 
+  INTEGER = 4
 } VariableType;
 
 typedef struct {
   double value;
   VariableType type;  
-  int constraint_idx; // -1 by default if the variable has no integrity constraints. This is going to help with the branch and bound to help track which bound constraint this variable corresponds to. For binary variables, its value should be num_constraints - num_vars + index of the variable.
+  int constraint_idx; // -1 by default if the variable has no integrity constraints. This is going to help with the branch and bound to help track which bound constraint this variable corresponds to. For Integer variables, the value should be constraint_idx - 1 - integer variable count.
                       
 } Variable;
+
+
+// typedef enum {
+//   INTEGER = 0,
+//   INFEASIBLE = 1,
+//   BRANCH = 2
+// } SolverStatus;
+
+typedef struct Subproblem{
+  
+
+  int id;
+  int variable; // contains the idx of the variable to be fixed
+  int value; // for debugging purposes, to track if I am enforcing the upper bound or lower bound constraint
+ // SolverStatus status; // 0 = integer solution, 2 = branch, 1 = infeasible, for debugging purposes
+
+} Subproblem;
+
+
+
+
 
 typedef struct
 {
@@ -39,9 +60,11 @@ typedef struct
   int solver_iterations;     // Self explanatory, tracks the solver iterations count 
   int *non_basics;           // Contains indices of non-basic variables
   int non_basics_count;      // Counts the number of non-basic variables
+  int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course.
 } Model;
 
 // Function declarations
+void SolverLoop(int argc, char* argv[]);
 void PrintHelp();
 Model *ReadCsv(FILE *csvfile);
 void TransformModel(Model *model);
