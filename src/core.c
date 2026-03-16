@@ -8,9 +8,9 @@
 #include <time.h>
 
 // I was planning to make an API out of this code logic for an online interface hence why I defined some limits on what the user can give to the code, feel free to adjust these
-#define MAX_LINE_LENGTH 1024 
+#define MAX_LINE_LENGTH 1024
 #define MAX_VARS 2000
-#define MAX_CONSTRAINTS 2000 
+#define MAX_CONSTRAINTS 2000
 #define MAX_MEM_BYTES 1024
 
 void PrintHelp(){
@@ -54,15 +54,15 @@ void PrintHelp(){
 }
 
 void SolverLoop(int argc, char *argv[]){
-  clock_t begin = clock(); 
-  int Debug = 0;
+  clock_t begin = clock();
+  bool Debug = false;
 
   if (argc < 2) {
     PrintHelp();
     exit(0);
   }
   if (argc >= 3 && strcmp(argv[2], "-Debug") == 0) {
-    Debug = 1;
+    Debug = true;
   }
 
   FILE *file = fopen(argv[1], "r");
@@ -76,33 +76,28 @@ void SolverLoop(int argc, char *argv[]){
 
 
 
-  printf("Starting solver, to enable iterative debugging add the flag '-Debug' as an argument after the file path. \n"); 
+  printf("Starting solver, to enable iterative debugging add the flag '-Debug' as an argument after the file path. \n");
 
   printf("\n");
 
+  if (model->integer_vars_count > 0) {
 
+    printf("Integer programming detected\n");
+    IntegerSolvingLoop(model);
+  }
+  else {
 
-  if (Debug == 1) {
+    if (Debug) {
 
-
-    RevisedSimplex_Debug(model);
-
-  } else {
-    if (model->integer_vars_count > 0) {
-      printf("Integer programming detected \n");
-      for (int i = 0; i < model->num_vars; i++) {
-        if (model->coeffs[i].type == INTEGER ) {
-          printf("Var: %i is of type INTEGER and its integrity constraint is located in %i \n", i, model->coeffs[i].constraint_idx);
-
-        }
-      }
+      RevisedSimplex_Debug(model);
     }
     else {
-      RevisedSimplex(model); 
-
+      RevisedSimplex(model);
     }
 
-  } 
+
+  }
+
 
   printf("\n");
   printf("Objective function: %f \n", model->objective_function);
@@ -175,7 +170,7 @@ Model *ReadCsv(FILE *csvfile)
   model->num_constraints = atoi(token);
 
   if (model->num_vars > MAX_VARS) {
-    fprintf(stderr, "Error: Too many variables (%zu). Maximum allowed: %d\n", 
+    fprintf(stderr, "Error: Too many variables (%zu). Maximum allowed: %d\n",
             model->num_vars, MAX_VARS);
     free(model);
     return NULL;
@@ -199,16 +194,22 @@ Model *ReadCsv(FILE *csvfile)
   // Allocate and parse coefficients
   model->coeffs = (Variable*)malloc(model->num_vars * sizeof(Variable));
   token = strtok(line, ",");
-  model->integer_vars_count = 0; 
+  model->integer_vars_count = 0;
   int idx = 0;
   while (token != NULL && idx < model->num_vars)
   {
-    // Check if token contains 'I' suffix 
     char *i_marker = strchr(token, 'I');
+    char *b_marker = strchr(token, 'B');
     if (i_marker != NULL) {
-      *i_marker = '\0'; 
+      *i_marker = '\0';
       model->coeffs[idx].value = atof(token);
       model->coeffs[idx].type = INTEGER;
+      model->coeffs[idx].constraint_idx = model->num_constraints - model->integer_vars_count - 1;
+      model->integer_vars_count += 1;
+    } else if (b_marker != NULL) {
+      *b_marker = '\0';
+      model->coeffs[idx].value = atof(token);
+      model->coeffs[idx].type = BINARY;
       model->coeffs[idx].constraint_idx = model->num_constraints - model->integer_vars_count - 1;
       model->integer_vars_count += 1;
     } else {
@@ -221,7 +222,7 @@ Model *ReadCsv(FILE *csvfile)
   }
 
   if (idx != model->num_vars) {
-    fprintf(stderr, "Error: Expected %zu variable coefficients but got %d\n", 
+    fprintf(stderr, "Error: Expected %zu variable coefficients but got %d\n",
             model->num_vars, idx);
     free(model->coeffs);
     free(model);
@@ -267,7 +268,7 @@ Model *ReadCsv(FILE *csvfile)
     }
 
     if (col_idx != model->num_vars) {
-      fprintf(stderr, "Error: Constraint %d has %d coefficients, expected %zu variables\n", 
+      fprintf(stderr, "Error: Constraint %d has %d coefficients, expected %zu variables\n",
               i, col_idx, model->num_vars);
       for (int j = 0; j < model->num_constraints; j++) {
         free(model->lhs_matrix[j]);
@@ -435,7 +436,7 @@ void TransformModel(Model *model)
       int col = slack_col + slack_idx;
       model->lhs_matrix[i][col] = 1.0;
       model->basics_vector[i] = col;
-      model->coeffs[col].type = SLACK;  
+      model->coeffs[col].type = SLACK;
       model->coeffs[col].value = 0.0;
       model->coeffs[col].constraint_idx = 0;
       slack_idx++;
@@ -451,10 +452,10 @@ void TransformModel(Model *model)
 
       model->coeffs[surplus_col].type = SLACK;
       model->coeffs[surplus_col].value = 0.0;
-      model->coeffs[surplus_col].constraint_idx = 0; 
+      model->coeffs[surplus_col].constraint_idx = 0;
       model->coeffs[artif_col].type = ARTIFICIAL;
       model->coeffs[artif_col].value = 0.0;
-      model->coeffs[artif_col].constraint_idx = 0; 
+      model->coeffs[artif_col].constraint_idx = 0;
       model->artificials_vector[artificial_idx] = artif_col;
       model->basics_vector[i] = artif_col;
 
@@ -659,10 +660,9 @@ void InvertMatrix(double **matrix, size_t n)
   free(aug);
   free(block);
 }
-
-void RevisedSimplex(Model *model) {
+void RevisedSimplex_Integer(Model *model) {
   TransformModel(model);
-  ValidateModelPointers(model); 
+  ValidateModelPointers(model);
 
   int termination = 0;
   size_t n = model->num_constraints;
@@ -676,7 +676,6 @@ void RevisedSimplex(Model *model) {
     }
 
     int feasibility_check = 0;
-    printf("Beginning solver iteration %i ... \n", model->solver_iterations);
 
     double **B_inv = Get_BasisInverse(model, model->solver_iterations);
 
@@ -710,8 +709,8 @@ void RevisedSimplex(Model *model) {
     if (feasibility_check == model->non_basics_count) {
       printf("Solver loop terminated!\n");
       termination++;
-      Get_ObjectiveFunction(model, original_RHS);
 
+      CheckIntegrity(model, original_RHS);
       for (size_t i = 0; i < n; i++) {
         free(B_inv[i]);
       }
@@ -757,7 +756,7 @@ void RevisedSimplex(Model *model) {
 }
 void RevisedSimplex_Debug(Model *model) {
   TransformModel(model);
-  ValidateModelPointers(model); 
+  ValidateModelPointers(model);
 
   printf("Debug Mode: On\n");
   printf("Model after transformation:\n");
@@ -772,7 +771,7 @@ void RevisedSimplex_Debug(Model *model) {
   printf("Number of constraints: %d\n", model->num_constraints);
   printf("Objective coefficients:");
   for (int i = 0; i < model->num_vars; i++) {
-    printf(" %.1f", model->coeffs[i].value);  
+    printf(" %.1f", model->coeffs[i].value);
   }
   printf("\n\n");
   Printlhs_matrix(model);
@@ -899,7 +898,7 @@ void RevisedSimplex_Debug(Model *model) {
         continue;
       }
       double ratio = original_RHS[i] / Pivot[i];
-      printf("Ratio of variable %i is %f which has a pivot value of %f \n", 
+      printf("Ratio of variable %i is %f which has a pivot value of %f \n",
              model->basics_vector[i], ratio, Pivot[i]);
       if (ratio < best_ratio && ratio >= 0) {
         best_ratio = ratio;
@@ -940,13 +939,109 @@ void RevisedSimplex_Debug(Model *model) {
     free(Simplex_multiplier);
 
     printf("\n");
-    printf("Iteration %i ends here, press any key to continue!\n", 
+    printf("Iteration %i ends here, press any key to continue!\n",
            model->solver_iterations - 1);
     printf("===================================================================\n");
     getchar();
   }
 }
 
+
+void RevisedSimplex(Model *model) {
+  TransformModel(model);
+  ValidateModelPointers(model);
+
+  int termination = 0;
+  size_t n = model->num_constraints;
+  int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
+
+  while (termination != 1) {
+    if (model->solver_iterations == MAX_ITERATIONS) {
+      printf("Max iterations reached. Terminating!\n");
+      FreeModel(model);
+      exit(0);
+    }
+
+    int feasibility_check = 0;
+    printf("Beginning solver iteration %i ... \n", model->solver_iterations);
+
+    double **B_inv = Get_BasisInverse(model, model->solver_iterations);
+
+    double original_RHS[n];
+    for (size_t i = 0; i < n; i++) {
+      original_RHS[i] = model->rhs_vector[i];
+    }
+
+    double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
+
+    int entering_var_idx = 0;
+    int entering_var = 0;
+    UpdateRhs(model, original_RHS, B_inv);
+
+    double best_reduced_cost = -DBL_MAX;
+
+    for (size_t i = 0; i < model->non_basics_count; i++) {
+      int non_basic_idx = model->non_basics[i];
+      double reduced_cost = Get_ReducedPrice(model, B_inv, non_basic_idx, Simplex_multiplier);
+
+      if (reduced_cost > best_reduced_cost) {
+        best_reduced_cost = reduced_cost;
+        entering_var_idx = i;
+        entering_var = non_basic_idx;
+      }
+      if (reduced_cost <= 0) {
+        feasibility_check++;
+      }
+    }
+
+    if (feasibility_check == model->non_basics_count) {
+      printf("Solver loop terminated!\n");
+      termination++;
+      Get_ObjectiveFunction(model, original_RHS);
+
+      for (size_t i = 0; i < n; i++) {
+        free(B_inv[i]);
+      }
+      free(B_inv);
+      free(Simplex_multiplier);
+      break;
+    }
+
+    double *Pivot = Get_pivot_column(B_inv, model, entering_var);
+
+    int exiting_var_idx = -1;
+    int exiting_var = -1;
+    double best_ratio = DBL_MAX;
+
+    for (size_t i = 0; i < n; i++) {
+      if (Pivot[i] <= 1e-6) {
+        continue;
+      }
+      double ratio = original_RHS[i] / Pivot[i];
+      if (ratio < best_ratio && ratio >= 0) {
+        best_ratio = ratio;
+        exiting_var_idx = i;
+        exiting_var = model->basics_vector[i];
+      }
+    }
+
+    if (exiting_var_idx == -1) {
+      printf("LP is unbounded! Terminating!\n");
+      exit(0);
+    }
+
+    model->non_basics[entering_var_idx] = exiting_var;
+    model->basics_vector[exiting_var_idx] = entering_var;
+    model->solver_iterations++;
+
+    free(Pivot);
+    for (size_t i = 0; i < n; i++) {
+      free(B_inv[i]);
+    }
+    free(B_inv);
+    free(Simplex_multiplier);
+  }
+}
 double Get_ReducedPrice(Model *model, double **B_inv, int var_col, double *multiplier_vector)
 {
   size_t n = model->num_constraints;
@@ -1020,6 +1115,61 @@ void UpdateRhs(Model *model, double *rhs_vector_copy, double **B)
   free(temp);
 }
 
+void CheckIntegrity(Model *model, double *rhs_vector){
+
+  size_t n = model->num_constraints;
+
+  for (int i = 0; i < n; i++)
+  {
+    int basic_idx = model->basics_vector[i];
+
+    if (model->coeffs[basic_idx].type == ARTIFICIAL && rhs_vector[i] > 1e-6)
+    {
+      printf("Model Infeasible. Artificial basic variable has a positive RHS value. Terminating!\n");
+      exit(0);
+    }
+
+
+    // Print only standard variables with non-zero values
+    if (model->coeffs[basic_idx].type == STANDARD && rhs_vector[i] > 1e-6)
+    {
+      // Convert back to original coefficient if it's a minimization problem originally
+      double original_coeff = model->coeffs[basic_idx].value;
+      if (model->objective == 0)
+      {
+        original_coeff *= -1;
+      }
+
+      printf("Value of variable x%i is %f with coefficient %f\n",
+             basic_idx, rhs_vector[i], original_coeff);
+    }
+
+    if (model->coeffs[basic_idx].type == INTEGER && rhs_vector[i] > 1e-6) {
+      double original_coeff = model->coeffs[basic_idx].value;
+      if (model->objective == 0) {
+        original_coeff *= -1;
+      }
+      if (fabs(rhs_vector[i] - floor(rhs_vector[i])) > 1e-6) {
+        printf("Variable x%i is not integer, value is %f\n", basic_idx, rhs_vector[i]);
+      }
+    }
+
+    if (model->coeffs[basic_idx].type == BINARY && rhs_vector[i] > 1e-6) {
+  double original_coeff = model->coeffs[basic_idx].value;
+  if (model->objective == 0) {
+    original_coeff *= -1;
+  }
+  if (fabs(rhs_vector[i] - floor(rhs_vector[i])) > 1e-6) {
+    printf("Variable x%i is not integer, value is %f\n", basic_idx, rhs_vector[i]);
+  }
+}
+
+
+  }
+
+
+}
+
 void Get_ObjectiveFunction(Model *model, double *rhs_vector)
 {
   size_t n = model->num_constraints;
@@ -1060,6 +1210,22 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector)
   printf("Optimal solution found! Objective value: %f\n", model->objective_function);
 }
 
+void IntegerSolvingLoop(Model *model){
+
+const char *type_names[] = {"", "STANDARD", "ARTIFICIAL", "SLACK", "INTEGER", "BINARY"};
+
+for (int j = 0; j < model->num_vars; j++) {
+  printf("Variable %i is of type %s\n", j, type_names[model->coeffs[j].type]);
+}
+
+
+  RevisedSimplex_Integer(model);
+  exit(0);
+
+
+}
+
+
 void FreeModel(Model *model)
 {
 
@@ -1073,7 +1239,7 @@ void FreeModel(Model *model)
 
   // variable struct
   size += sizeof(Variable) * model->num_vars; // struct
-  size += sizeof(int) * model->num_vars; // type 
+  size += sizeof(int) * model->num_vars; // type
   size += sizeof(int) * model->num_vars; // constraint index
   size += sizeof(double) * model->num_vars; // value
 
@@ -1099,7 +1265,7 @@ void FreeModel(Model *model)
   size_t inversion_memory = n * (2 * n) * sizeof(double) + n * sizeof(double*);
   size_t constraints_vector = n * sizeof(double);
   printf("Model's estimated memory usage: %zu bytes (%.2f KB)\n", size, size / 1024.0);
-  printf("Matrix inversion memory usage per iteration: %zu bytes (%.2f KB)\n", 
+  printf("Matrix inversion memory usage per iteration: %zu bytes (%.2f KB)\n",
          inversion_memory, inversion_memory / 1024.0);
   printf("Simplex multiplier vector size per iteration: %zu bytes (%.2f KB) \n", constraints_vector, constraints_vector / 1024.0);
   printf("Memory usage when updating the RHS vector per iteration: %zu bytes (%.2f KB) \n", constraints_vector, constraints_vector / 1024.0);

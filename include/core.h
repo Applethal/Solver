@@ -12,7 +12,8 @@ typedef enum {
   STANDARD = 1,
   ARTIFICIAL = 2,
   SLACK = 3, 
-  INTEGER = 4
+  INTEGER = 4,
+  BINARY = 5
 } VariableType;
 
 typedef struct {
@@ -60,7 +61,7 @@ typedef struct
   int solver_iterations;     // Self explanatory, tracks the solver iterations count 
   int *non_basics;           // Contains indices of non-basic variables
   int non_basics_count;      // Counts the number of non-basic variables
-  int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course.
+  int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course. This also counts it for binary variables
 } Model;
 
 // Function declarations
@@ -80,5 +81,8 @@ void UpdateRhs(Model *model, double *rhs_vector_copy, double **B);
 void Get_ObjectiveFunction(Model *model, double *rhs_vector);
 void FreeModel(Model *model);
 void ValidateModelPointers(Model *model);
+void RevisedSimplex_Integer(Model *model);
+void IntegerSolvingLoop(Model *model);
+void CheckIntegrity(Model *model, double* rhs_vector);
 
 #endif // CORE_H

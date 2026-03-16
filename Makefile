@@ -12,7 +12,7 @@ OBJ			= $(SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 TARGET = $(BUILD_DIR)/rsa
 
 $(TARGET): $(OBJ)
-	$(GCC) -g -Iinclude -o $@ $^
+	$(GCC) -g -Iinclude -o $@ $^ -lm
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(GCC) -g -Iinclude -c $< -o $@
