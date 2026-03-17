@@ -660,11 +660,8 @@ void InvertMatrix(double **matrix, size_t n)
   free(aug);
   free(block);
 }
-void RevisedSimplex_Integer(Model *model) {
-  TransformModel(model);
-  ValidateModelPointers(model);
-
-  int termination = 0;
+int RevisedSimplex_Integer(Model *model) {
+   int termination = 0;
   size_t n = model->num_constraints;
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
 
@@ -710,13 +707,13 @@ void RevisedSimplex_Integer(Model *model) {
       printf("Solver loop terminated!\n");
       termination++;
 
-      CheckIntegrity(model, original_RHS);
       for (size_t i = 0; i < n; i++) {
         free(B_inv[i]);
       }
       free(B_inv);
       free(Simplex_multiplier);
-      break;
+      return CheckIntegrity(model, original_RHS);
+ 
     }
 
     double *Pivot = Get_pivot_column(B_inv, model, entering_var);
@@ -1115,7 +1112,7 @@ void UpdateRhs(Model *model, double *rhs_vector_copy, double **B)
   free(temp);
 }
 
-void CheckIntegrity(Model *model, double *rhs_vector){
+int CheckIntegrity(Model *model, double *rhs_vector){
 
   size_t n = model->num_constraints;
 
@@ -1130,27 +1127,13 @@ void CheckIntegrity(Model *model, double *rhs_vector){
     }
 
 
-    // Print only standard variables with non-zero values
-    if (model->coeffs[basic_idx].type == STANDARD && rhs_vector[i] > 1e-6)
-    {
-      // Convert back to original coefficient if it's a minimization problem originally
-      double original_coeff = model->coeffs[basic_idx].value;
-      if (model->objective == 0)
-      {
-        original_coeff *= -1;
-      }
-
-      printf("Value of variable x%i is %f with coefficient %f\n",
-             basic_idx, rhs_vector[i], original_coeff);
-    }
-
     if (model->coeffs[basic_idx].type == INTEGER && rhs_vector[i] > 1e-6) {
       double original_coeff = model->coeffs[basic_idx].value;
       if (model->objective == 0) {
         original_coeff *= -1;
       }
       if (fabs(rhs_vector[i] - floor(rhs_vector[i])) > 1e-6) {
-        printf("Variable x%i is not integer, value is %f\n", basic_idx, rhs_vector[i]);
+        return basic_idx;
       }
     }
 
@@ -1160,12 +1143,13 @@ void CheckIntegrity(Model *model, double *rhs_vector){
     original_coeff *= -1;
   }
   if (fabs(rhs_vector[i] - floor(rhs_vector[i])) > 1e-6) {
-    printf("Variable x%i is not integer, value is %f\n", basic_idx, rhs_vector[i]);
+    return basic_idx;
   }
 }
 
 
   }
+  return -1;
 
 
 }
@@ -1212,14 +1196,14 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector)
 
 void IntegerSolvingLoop(Model *model){
 
-const char *type_names[] = {"", "STANDARD", "ARTIFICIAL", "SLACK", "INTEGER", "BINARY"};
-
-for (int j = 0; j < model->num_vars; j++) {
-  printf("Variable %i is of type %s\n", j, type_names[model->coeffs[j].type]);
-}
+  Model *model_copy = deep_copy_model(model);
 
 
-  RevisedSimplex_Integer(model);
+
+  TransformModel(model);
+  ValidateModelPointers(model);
+  printf("The first non integer variable is %i \n" , RevisedSimplex_Integer(model));
+
   exit(0);
 
 
@@ -1345,3 +1329,86 @@ void ValidateModelPointers(Model *model)
     }
   }
 }
+
+
+Model *deep_copy_model(const Model *model)
+{
+    if (!model) return NULL;
+
+    Model *model_copy = calloc(1, sizeof(Model));
+    if (!model_copy) return NULL;
+
+    size_t total_vars = model->num_vars
+                      + model->slacks_surplus_count
+                      + model->artificials_count;
+
+    model_copy->objective            = model->objective;
+    model_copy->num_constraints      = model->num_constraints;
+    model_copy->num_vars             = model->num_vars;
+    model_copy->objective_function   = model->objective_function;
+    model_copy->slacks_surplus_count = model->slacks_surplus_count;
+    model_copy->artificials_count    = model->artificials_count;
+    model_copy->solver_iterations    = model->solver_iterations;
+    model_copy->non_basics_count     = model->non_basics_count;
+    model_copy->integer_vars_count   = model->integer_vars_count;
+
+    if (model->lhs_matrix)
+    {
+        model_copy->lhs_matrix = calloc(model->num_constraints, sizeof(double *));
+        if (!model_copy->lhs_matrix) return FreeModel(model_copy), NULL;
+
+        for (size_t i = 0; i < model->num_constraints; i++)
+        {
+            model_copy->lhs_matrix[i] = calloc(total_vars, sizeof(double));
+            if (!model_copy->lhs_matrix[i]) return FreeModel(model_copy), NULL;
+            memcpy(model_copy->lhs_matrix[i], model->lhs_matrix[i], total_vars * sizeof(double));
+        }
+    }
+
+    if (model->coeffs)
+    {
+        model_copy->coeffs = calloc(total_vars, sizeof(Variable));
+        if (!model_copy->coeffs) return FreeModel(model_copy), NULL;
+        memcpy(model_copy->coeffs, model->coeffs, total_vars * sizeof(Variable));
+    }
+
+    if (model->rhs_vector)
+    {
+        model_copy->rhs_vector = calloc(model->num_constraints, sizeof(double));
+        if (!model_copy->rhs_vector) return FreeModel(model_copy), NULL;
+        memcpy(model_copy->rhs_vector, model->rhs_vector, model->num_constraints * sizeof(double));
+    }
+
+    if (model->basics_vector)
+    {
+        model_copy->basics_vector = calloc(model->num_constraints, sizeof(int));
+        if (!model_copy->basics_vector) return FreeModel(model_copy), NULL;
+        memcpy(model_copy->basics_vector, model->basics_vector, model->num_constraints * sizeof(int));
+    }
+
+    if (model->constraints_symbols)
+    {
+        model_copy->constraints_symbols = calloc(model->num_constraints, sizeof(char));
+        if (!model_copy->constraints_symbols) return FreeModel(model_copy), NULL;
+        memcpy(model_copy->constraints_symbols, model->constraints_symbols, model->num_constraints * sizeof(char));
+    }
+
+    if (model->artificials_vector && model->artificials_count > 0)
+    {
+        model_copy->artificials_vector = calloc(model->artificials_count, sizeof(int));
+        if (!model_copy->artificials_vector) return FreeModel(model_copy), NULL;
+        memcpy(model_copy->artificials_vector, model->artificials_vector, model->artificials_count * sizeof(int));
+    }
+
+    if (model->non_basics && model->non_basics_count > 0)
+    {
+        model_copy->non_basics = calloc(model->non_basics_count, sizeof(int));
+        if (!model_copy->non_basics) return FreeModel(model_copy), NULL;
+        memcpy(model_copy->non_basics, model->non_basics, model->non_basics_count * sizeof(int));
+    }
+
+    return model_copy;
+}
+
+
+

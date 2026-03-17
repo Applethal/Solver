@@ -81,8 +81,9 @@ void UpdateRhs(Model *model, double *rhs_vector_copy, double **B);
 void Get_ObjectiveFunction(Model *model, double *rhs_vector);
 void FreeModel(Model *model);
 void ValidateModelPointers(Model *model);
-void RevisedSimplex_Integer(Model *model);
+//Integer solving funcs
+int RevisedSimplex_Integer(Model *model); // return index of the first non-integer variable. If -1 is returned then the solution is integer
 void IntegerSolvingLoop(Model *model);
-void CheckIntegrity(Model *model, double* rhs_vector);
-
+int CheckIntegrity(Model *model, double* rhs_vector); 
+Model *deep_copy_model(const Model *model);
 #endif // CORE_H
