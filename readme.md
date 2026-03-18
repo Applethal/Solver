@@ -92,4 +92,7 @@ Implicitly, all variables are non-negative (of course) you won't need to conside
 Where `filepath`is the `.csv` file path, `-Debug` is an optional flag that can be added as an argument, allowing you to see the solver operations step by step, the displayed indices are 0 indexed. The program will convert the problem to its canonical form then iteratively execute the algorithm until it terminates. The reason I am using the .csv file format is because of how portable it is + you can easily view whether the entries are valid using a Graphical CSV reader (e.g. OnlyOffice) to easily display whether data is missing.
 
 
+*Note*: The Debug mode will run using the Big M method. The regular solving will use Two-Pass. I have yet to implement an additional flag to switch between the two modes for the sake of consistency. 
+
+
 

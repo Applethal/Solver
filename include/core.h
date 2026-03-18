@@ -61,7 +61,8 @@ typedef struct
   int solver_iterations;     // Self explanatory, tracks the solver iterations count 
   int *non_basics;           // Contains indices of non-basic variables
   int non_basics_count;      // Counts the number of non-basic variables
-  int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course. This also counts it for binary variables
+  int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course. This also counts it for                             binary variables
+  int *integer_vars_idx; // Self explanatory, contains the idx of each integer var.
 } Model;
 
 // Function declarations
@@ -69,11 +70,12 @@ void SolverLoop(int argc, char* argv[]);
 void PrintHelp();
 Model *ReadCsv(FILE *csvfile);
 void TransformModel(Model *model);
-void Printlhs_matrix(Model *model);
+void PrintConstraints_matrix(Model *model); // Prints matrix in canonical form 
+void PrintConstraints_matrix_original(Model *model); // Prints matrix prior to transformation
 double **Get_BasisInverse(Model *model, int iteration);
 void InvertMatrix(double **matrix, size_t n);
-void RevisedSimplex(Model *model);
-void RevisedSimplex_Debug(Model *model);
+void RevisedSimplex(Model *model); 
+void RevisedSimplex_Debug(Model *model); 
 double Get_ReducedPrice(Model *model, double **B_inv, int var_col, double *multiplier_vector);
 double *Get_SimplexMultiplier(Model *model, double **B_inv);
 double *Get_pivot_column(double **B_inv, Model *model, int best_cost_idx);
@@ -85,5 +87,23 @@ void ValidateModelPointers(Model *model);
 int RevisedSimplex_Integer(Model *model); // return index of the first non-integer variable. If -1 is returned then the solution is integer
 void IntegerSolvingLoop(Model *model);
 int CheckIntegrity(Model *model, double* rhs_vector); 
+
+// Code I needed to implement Two-Phase solving as I will need it for BnB
+static int SimplexLoop(Model *model, double *solution_out); 
+int  RunPhase1(Model *model);   // returns 1 feasible, 0 infeasible
+void RunPhase2(Model *model);   // optimizes from Phase 1 basis
+void Solve(Model *model);       // entry point: Transform -> Phase1 -> Phase2
+
+
+
+void ModifyConstraint_IntegerUB(Model * model, int index, double value);
+void ModifyConstraint_IntegerLB(Model * model, int index, double value);
+void ModifyConstraint_BinaryUB(Model * model, int index); // Binary variables already have known bounds of 1s and 0s
+void ModifyConstraint_BinaryLB(Model * model, int index);
+
+
 Model *deep_copy_model(const Model *model);
+
+
+
 #endif // CORE_H
