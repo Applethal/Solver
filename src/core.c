@@ -49,11 +49,12 @@ void PrintHelp(){
   printf("     - Model's size in bytes\n");
   printf("AUTHOR\n");
   printf("     Written by Applethal / Saad Nordine\n\n");
+  printf("     Thanks to Victor Hebert for implementing the Make file routine sequence");
   printf("REPORTING BUGS\n");
   printf("     Please report any bugs in the issues page in https://github.com/Applethal/RSA\n\n");
 }
 
-void SolverLoop(int argc, char *argv[]) {
+void MainLoop(int argc, char *argv[]) {
   clock_t begin = clock();
   bool Debug = false;
 
@@ -79,11 +80,10 @@ void SolverLoop(int argc, char *argv[]) {
     IntegerSolvingLoop(model);
   } else {
     if (Debug) {
-      TransformModel(model);
-      ValidateModelPointers(model);
-      RevisedSimplex_Debug(model);
+       Solve_BigM_Debug(model);    
     } else {
-      Solve(model);
+       //Solve(model);
+       Solve_BigM(model);
     }
   }
 
@@ -489,16 +489,16 @@ void TransformModel(Model *model)
   }
 
   // Build non-basics list
-  model->non_basics = (int *)malloc(total_cols * sizeof(int));
+  model->non_basics = (int *)malloc(model->num_vars* sizeof(int));
   int non_basic_idx = 0;
   for (int col = 0; col < total_cols; col++)
   {
-    int is_basic = 0;
+    bool is_basic = false;
     for (int j = 0; j < model->num_constraints; j++)
     {
       if (model->basics_vector[j] == col)
       {
-        is_basic = 1;
+        is_basic = true;
         break;
       }
     }
@@ -666,7 +666,7 @@ void InvertMatrix(double **matrix, size_t n)
   free(aug);
   free(block);
 }
-int RevisedSimplex_Integer(Model *model) {
+int RevisedSimplex_Integer(Model *model, bool warmstart, int *parent_basis, int *parent_non_basics, double *solution_out ) {
   int termination = 0;
   size_t n = model->num_constraints;
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
@@ -1205,7 +1205,7 @@ void IntegerSolvingLoop(Model *model){
 
   TransformModel(model);
   ValidateModelPointers(model);
-  int var_test = RevisedSimplex_Integer(model);
+  int var_test = RevisedSimplex_Integer(model, NULL, NULL, NULL, NULL);
   printf("The first non integer variable is %i \n" , var_test);
   ModifyConstraint_IntegerUB(model_copy, model_copy->coeffs[var_test].constraint_idx, 10 );
 
@@ -1330,6 +1330,14 @@ int SimplexLoop(Model *model, double *solution_out) {
   }
 }
 
+
+
+void Solve_BigM(Model *model){
+    TransformModel(model);
+    ValidateModelPointers(model);
+    RevisedSimplex(model);
+}
+
 int RunPhase1(Model *model) {
     int total_cols = model->num_vars + model->slacks_surplus_count + model->artificials_count;
 
@@ -1350,11 +1358,11 @@ int RunPhase1(Model *model) {
     SimplexLoop(model, solution);
 
     // Check if any artificial is still basic with positive value
-    int feasible = 1;
+    bool feasible = true;
     for (size_t i = 0; i < model->num_constraints; i++) {
         int basic = model->basics_vector[i];
         if (model->coeffs[basic].type == ARTIFICIAL && solution[i] > 1e-6) {
-            feasible = 0;
+            feasible = false;
             break;
         }
     }
@@ -1519,6 +1527,13 @@ void ValidateModelPointers(Model *model)
   }
 }
 
+void Solve_BigM_Debug(Model *model) {
+    TransformModel(model);
+    ValidateModelPointers(model);
+    RevisedSimplex_Debug(model);
+
+
+}
 
 
 

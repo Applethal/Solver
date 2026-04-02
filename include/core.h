@@ -30,17 +30,31 @@ typedef struct {
 //   BRANCH = 2
 // } SolverStatus;
 
-typedef struct Subproblem{
-  
+// typedef struct Subproblem{
+//
+//
+//   int id;
+//   Variable variable; // contains the idx of the variable to be fixed
+//   int value; // for debugging purposes, to track if I am enforcing the upper bound or lower bound constraint
+//  // SolverStatus status; // 0 = integer solution, 2 = branch, 1 = infeasible, for debugging purposes
+//
+// } Subproblem;
+//
 
-  int id;
-  int variable; // contains the idx of the variable to be fixed
-  int value; // for debugging purposes, to track if I am enforcing the upper bound or lower bound constraint
- // SolverStatus status; // 0 = integer solution, 2 = branch, 1 = infeasible, for debugging purposes
+typedef struct BnB{
 
-} Subproblem;
+  double UpperBound; // UB for Minimization, LB for maximization 
+  double LowerBound;
+  int *best_feasible_basis;
 
 
+} BnB;
+
+typedef struct Node{
+
+  double *Upperbounds;
+  double *LowerBounds;
+} Node;
 
 
 
@@ -66,7 +80,7 @@ typedef struct
 } Model;
 
 // Function declarations
-void SolverLoop(int argc, char* argv[]);
+void MainLoop(int argc, char* argv[]);
 void PrintHelp();
 Model *ReadCsv(FILE *csvfile);
 void TransformModel(Model *model);
@@ -84,17 +98,17 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector);
 void FreeModel(Model *model);
 void ValidateModelPointers(Model *model);
 //Integer solving funcs
-int RevisedSimplex_Integer(Model *model); // return index of the first non-integer variable. If -1 is returned then the solution is integer
+int RevisedSimplex_Integer(Model *model, bool warmstart, int *parent_basis, int *parent_non_basics, double *solution_out); // return index of the first non-integer variable. If -1 is returned then the solution is integer
 void IntegerSolvingLoop(Model *model);
 int CheckIntegrity(Model *model, double* rhs_vector); 
 
 // Code I needed to implement Two-Phase solving as I will need it for BnB
-static int SimplexLoop(Model *model, double *solution_out); 
+int  SimplexLoop(Model *model, double *solution_out); 
 int  RunPhase1(Model *model);   // returns 1 feasible, 0 infeasible
 void RunPhase2(Model *model);   // optimizes from Phase 1 basis
-void Solve(Model *model);       // entry point: Transform -> Phase1 -> Phase2
-
-
+void Solve(Model *model);       // Solver routine using the Two-Phase scheme
+void Solve_BigM(Model *model); // Solver routine using BigM, keeping it here for the sake of legacy
+void Solve_BigM_Debug(Model *model);
 
 void ModifyConstraint_IntegerUB(Model * model, int index, double value);
 void ModifyConstraint_IntegerLB(Model * model, int index, double value);

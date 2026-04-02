@@ -2,7 +2,7 @@
 
 int main(int argc, char *argv[]) {
    
-  SolverLoop(argc, argv);
+  MainLoop(argc, argv);
 
   return 0;
 
