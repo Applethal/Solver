@@ -18,8 +18,9 @@ TODO:
 
 7- Given how portable this program is, maybe I should implement Branch-and-Bound to consider integer points in the space.
 
-8- This is just discrete mathematics, I don't need any dynamic memory allocation I suppose. Maybe when building the API yes, but if I have to solve using input files, I might as well just use the stack at this point.
+8- Implement model pre-processing cuts to reduce space.
 
+9- Change parsing so that constraints are parsed before the objective function, making it less expensive for the CPU to request and fill memory upon transforming.
 
 # How to contribute 
 

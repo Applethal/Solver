@@ -1,4 +1,5 @@
 #include "core.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <float.h>
 #include <stdlib.h>
@@ -74,6 +75,7 @@ void MainLoop(int argc, char *argv[]) {
 
   Model *model = ReadCsv(file);
   printf("Starting solver, to enable iterative debugging add the flag '-Debug' as an argument after the file path.\n\n");
+  fclose(file);
 
   if (model->integer_vars_count > 0) {
     printf("Integer programming detected\n");
@@ -91,7 +93,10 @@ void MainLoop(int argc, char *argv[]) {
   printf("Objective function: %f\n", model->objective_function);
   clock_t end = clock();
   printf("Solving time: %f seconds\n", (double)(end - begin) / CLOCKS_PER_SEC);
-  fclose(file);
+  size_t size = ModelMemSize(model);
+  printf("Model's estimated memory usage: %zu bytes (%.2f KB)\n", size, size / 1024.0);
+
+  
   FreeModel(model);
 }
 
@@ -489,7 +494,7 @@ void TransformModel(Model *model)
   }
 
   // Build non-basics list
-  model->non_basics = (int *)malloc(model->num_vars* sizeof(int));
+  model->non_basics = (int *)malloc( model->num_vars* sizeof(int));
   int non_basic_idx = 0;
   for (int col = 0; col < total_cols; col++)
   {
@@ -1410,49 +1415,8 @@ void Solve(Model *model) {
 void FreeModel(Model *model)
 {
 
-
-  size_t size = 0;
-
-  size += sizeof(bool); // objective mode
-  size += sizeof(int) * model->num_constraints * 2;
-  size += sizeof(int) * model->num_vars;
-
-
-  // variable struct
-  size += sizeof(Variable) * model->num_vars; // struct
-  size += sizeof(int) * model->num_vars; // type
-  size += sizeof(int) * model->num_vars; // constraint index
-  size += sizeof(double) * model->num_vars; // value
-
-  int total_cols = model->num_vars + model->slacks_surplus_count + model->artificials_count;
-
-  for (int i = 0; i < model->num_constraints; i++)
-  {
+for (int i = 0; i < model->num_constraints; i++)
     free(model->lhs_matrix[i]);
-    size += sizeof(double) * total_cols;
-  }
-
-  size += sizeof(Variable) * total_cols;           // Variables
-  size += sizeof(double) * model->num_constraints; // RHS vector
-  size += sizeof(int) * model->num_constraints;    // Basics vector
-  size += sizeof(double);                          // Objective function
-  size += sizeof(char) * model->num_constraints;   // Constraints symbols
-  size += sizeof(int) * 2;                         // Inequalities and equalities count
-  size += sizeof(int) * model->artificials_count;  // Artificials vector
-  size += sizeof(int);                             // Solver iterations
-  size += sizeof(int) * model->non_basics_count;   // Non-basics
-
-  size_t n = model->num_constraints;
-  size_t inversion_memory = n * (2 * n) * sizeof(double) + n * sizeof(double*);
-  size_t constraints_vector = n * sizeof(double);
-  printf("Model's estimated memory usage: %zu bytes (%.2f KB)\n", size, size / 1024.0);
-  printf("Matrix inversion memory usage per iteration: %zu bytes (%.2f KB)\n",
-         inversion_memory, inversion_memory / 1024.0);
-  printf("Simplex multiplier vector size per iteration: %zu bytes (%.2f KB) \n", constraints_vector, constraints_vector / 1024.0);
-  printf("Memory usage when updating the RHS vector per iteration: %zu bytes (%.2f KB) \n", constraints_vector, constraints_vector / 1024.0);
-  printf("Total dynamic memory usage in each iteration: %zu bytes (%.2f KB)\n", constraints_vector * 2 + inversion_memory + size, (constraints_vector * 2 + inversion_memory + size) / 1024.0);
-  printf("Total iterations: %d\n", model->solver_iterations);
-
   free(model->lhs_matrix);
   free(model->coeffs);
   free(model->rhs_vector);
@@ -1460,11 +1424,11 @@ void FreeModel(Model *model)
   free(model->constraints_symbols);
   free(model->artificials_vector);
   free(model->non_basics);
+  free(model->integer_vars_idx);
   free(model);
-
   printf("-------------------------------\n");
   printf("Model free'd from the heap\n");
-}
+ }
 
 void ValidateModelPointers(Model *model)
 {
@@ -1627,5 +1591,44 @@ Model *deep_copy_model(const Model *model)
   return model_copy;
 }
 
+size_t ModelMemSize(Model *model){
+
+
+  size_t size = 0;
+  size += sizeof(bool); // objective mode
+  size += sizeof(int) * model->num_constraints * 2;
+  size += sizeof(int) * model->num_vars;
+  // variable struct
+  size += sizeof(Variable) * model->num_vars; // struct
+  size += sizeof(int) * model->num_vars; // type
+  size += sizeof(int) * model->num_vars; // constraint index
+  size += sizeof(double) * model->num_vars; // value
+  int total_cols = model->num_vars + model->slacks_surplus_count + model->artificials_count;
+  for (int i = 0; i < model->num_constraints; i++)
+    size += sizeof(double) * total_cols;
+  size += sizeof(Variable) * total_cols;           // Variables
+  size += sizeof(double) * model->num_constraints; // RHS vector
+  size += sizeof(int) * model->num_constraints;    // Basics vector
+  size += sizeof(double);                          // Objective function
+  size += sizeof(char) * model->num_constraints;   // Constraints symbols
+  size += sizeof(int) * 2;                         // Inequalities and equalities count
+  size += sizeof(int) * model->artificials_count;  // Artificials vector
+  size += sizeof(int);                             // Solver iterations
+  size += sizeof(int) * model->non_basics_count;   // Non-basics
+  size += sizeof(int) * model->integer_vars_count; // Integer variable indices
+  size_t n = model->num_constraints;
+  size_t inversion_memory = n * (2 * n) * sizeof(double) + n * sizeof(double *);
+  size_t constraints_vector = n * sizeof(double);
+    // printf("Matrix inversion memory usage per iteration: %zu bytes (%.2f KB)\n",
+  //        inversion_memory, inversion_memory / 1024.0);
+  // printf("Simplex multiplier vector size per iteration: %zu bytes (%.2f KB)\n", constraints_vector, constraints_vector / 1024.0);
+  // printf("Memory usage when updating the RHS vector per iteration: %zu bytes (%.2f KB)\n", constraints_vector, constraints_vector / 1024.0);
+  // printf("Total dynamic memory usage in each iteration: %zu bytes (%.2f KB)\n", constraints_vector * 2 + inversion_memory + size, (constraints_vector * 2 + inversion_memory + size) / 1024.0);
+  // printf("Total iterations: %d\n", model->solver_iterations);
+  
+  return size;
+
+
+}
 
 

@@ -97,6 +97,7 @@ void UpdateRhs(Model *model, double *rhs_vector_copy, double **B);
 void Get_ObjectiveFunction(Model *model, double *rhs_vector);
 void FreeModel(Model *model);
 void ValidateModelPointers(Model *model);
+size_t ModelMemSize(Model *model);
 //Integer solving funcs
 int RevisedSimplex_Integer(Model *model, bool warmstart, int *parent_basis, int *parent_non_basics, double *solution_out); // return index of the first non-integer variable. If -1 is returned then the solution is integer
 void IntegerSolvingLoop(Model *model);
