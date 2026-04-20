@@ -22,6 +22,7 @@ TODO:
 
 9- Change parsing so that constraints are parsed before the objective function, making it less expensive for the CPU to request and fill memory upon transforming.
 
+
 # How to contribute 
 
 Test this with as many LP models please. So far I gave it nothing but LPs from linear algebra/Operation research text books and internet forums. Be sure to report any issues if necessary.
