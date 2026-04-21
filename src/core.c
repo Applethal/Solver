@@ -103,8 +103,8 @@ void MainLoop(int argc, char *argv[]) {
     if (Debug) {
       Solve_BigM_Debug(model);
     } else {
-      //Solve(model);
-      Solve_BigM(model);
+      Solve(model);
+      //Solve_BigM(model);
     }
   }
 
@@ -199,6 +199,7 @@ Model *ReadCsv(FILE *csvfile) {
   token = strtok(line, ",");
   model->integer_vars_count = 0;
   int idx = 0;
+  model->bigM = 1; 
   while (token != NULL && idx < model->num_vars) {
     char *i_marker = strchr(token, 'I');
     char *b_marker = strchr(token, 'B');
@@ -223,7 +224,13 @@ Model *ReadCsv(FILE *csvfile) {
       model->coeffs[idx].type = STANDARD;
       model->coeffs[idx].constraint_idx = 0;
     }
+
+     if (model->bigM < model->coeffs[idx].value) {
+        model->bigM = model->coeffs[idx].value;  
+    }
     idx++;
+
+   
     token = strtok(NULL, ",");
   }
   model->integer_vars_idx =
@@ -751,7 +758,7 @@ void RevisedSimplex_Debug(Model *model) {
   // Big-M penalty applied AFTER negation
   int artificial_start = model->num_vars + model->slacks_surplus_count;
   for (int i = 0; i < model->artificials_count; i++) {
-    model->coeffs[artificial_start + i].value = -1e10;
+    model->coeffs[artificial_start + i].value = -(model->bigM * 2);
   }
 
   printf("Debug Mode: On\n");
@@ -964,8 +971,10 @@ void RevisedSimplex(Model *model) {
   int artificial_start = model->num_vars + model->slacks_surplus_count;
   for (int i = 0; i < model->artificials_count; i++) {
 
-    model->coeffs[artificial_start + i].value = -1e10;
+    model->coeffs[artificial_start + i].value = -(model->bigM * 2);
   }
+
+  
 
   int termination = 0;
   size_t n = model->num_constraints;
@@ -1251,6 +1260,7 @@ int SimplexLoop(Model *model, double *solution_out) {
       printf("Max iterations reached. Terminating!\n");
       return -2;
     }
+    printf("Beginning solver iteration %i \n", model->solver_iterations);
 
     double **B_inv = Get_BasisInverse(model, model->solver_iterations);
     double original_RHS[n];
@@ -1382,6 +1392,7 @@ int RunPhase1(Model *model) {
     printf("Model is infeasible.\n");
     return 0;
   }
+  printf("Model is feasible as of phase 1 \n");
   return 1;
 }
 

@@ -75,8 +75,9 @@ typedef struct
   int solver_iterations;     // Self explanatory, tracks the solver iterations count 
   int *non_basics;           // Contains indices of non-basic variables
   int non_basics_count;      // Counts the number of non-basic variables
-  int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course. This also counts it for                             binary variables
+  int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course. This also counts it for binary variables
   int *integer_vars_idx; // Self explanatory, contains the idx of each integer var.
+  double bigM; // equals highest avaiable coefficient * 2, used only for the simplex with BigM method 
 } Model;
 
 // Function declarations
