@@ -20,8 +20,19 @@ typedef struct {
   double value;
   VariableType type;  
   int constraint_idx; // -1 by default if the variable has no integrity constraints. This is going to help with the branch and bound to help track which bound constraint this variable corresponds to. For Integer variables, the value should be constraint_idx - 1 - integer variable count.
+  double lb; 
+  double ub;
+  double originallb;
                       
 } Variable;
+
+// I was planning to make an API out of this code logic for an online interface
+// hence why I defined some limits on what the user can give to the code, feel
+// free to adjust these
+#define MAX_LINE_LENGTH 1024
+#define MAX_VARS 2000
+#define MAX_CONSTRAINTS 2000
+#define MAX_MEM_BYTES 1024
 
 
 // typedef enum {
@@ -78,6 +89,7 @@ typedef struct
   int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course. This also counts it for binary variables
   int *integer_vars_idx; // Self explanatory, contains the idx of each integer var.
   double bigM; // equals highest avaiable coefficient * 2, used only for the simplex with BigM method 
+  double ObjectiveConstant; // When transforming the models via the bounded variable simplex, I will store the constant here 
 } Model;
 
 // Function declarations
@@ -103,6 +115,18 @@ size_t ModelMemSize(Model *model);
 int RevisedSimplex_Integer(Model *model, bool warmstart, int *parent_basis, int *parent_non_basics, double *solution_out); // return index of the first non-integer variable. If -1 is returned then the solution is integer
 void IntegerSolvingLoop(Model *model);
 int CheckIntegrity(Model *model, double* rhs_vector); 
+
+
+// Bounded variable Simplex 
+
+void SolveBounded(Model* model); 
+void BoundedSimplexI(Model* model);
+void TransformBoundedModel(Model* model); // Bounded variable simplex will have a different procedure
+
+
+
+
+
 
 // Code I needed to implement Two-Phase solving as I will need it for BnB
 int  SimplexLoop(Model *model, double *solution_out); 

@@ -12,7 +12,7 @@ OBJ			= $(SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 TARGET = $(BUILD_DIR)/rsa
 
 $(TARGET): $(OBJ)
-	$(GCC) -g -Iinclude -o $@ $^ -lm
+	$(GCC) -g -Iinclude -o $@ $^ -lm -Wall
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(GCC) -g -Iinclude -c $< -o $@
@@ -27,3 +27,7 @@ clean:
 	rm -rf build/*
 
 .PHONY: run debug
+
+
+compile_commands.json:
+	bear -- make
