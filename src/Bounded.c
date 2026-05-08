@@ -1,7 +1,17 @@
 #include "core.h"
-
+#include <stdio.h>
 
 void BoundedSimplex(Model *model) {
+
+    model->rhs_vector[0] = 8;
+    model->rhs_vector[1] = 6;
+    model->rhs_vector[2] = 5;
+
+    model->coeffs[0].status = LOWER;
+    model->coeffs[1].status = LOWER;
+    model->coeffs[2].status = LOWER;
+
+
 
   // Big-M penalty applied AFTER negation
   int artificial_start = model->num_vars + model->slacks_surplus_count;
@@ -37,62 +47,78 @@ void BoundedSimplex(Model *model) {
     int entering_var = 0;
     UpdateRhs(model, original_RHS, B_inv);
 
-    double best_reduced_cost = -DBL_MAX;
-
+    double best_reduced_cost = 0;
     for (size_t i = 0; i < model->non_basics_count; i++) {
       int non_basic_idx = model->non_basics[i];
-      double reduced_cost =
-          Get_ReducedPrice(model, B_inv, non_basic_idx, Simplex_multiplier);
+      double reduced_cost = Get_ReducedPrice(model, B_inv, non_basic_idx, Simplex_multiplier);
+
+      if (model->coeffs[non_basic_idx].status == LOWER && reduced_cost <= 0) {
+        feasibility_check++;
+      } else if (model->coeffs[non_basic_idx].status == UPPER && reduced_cost >= 0) {
+        feasibility_check++;
+      }
+      
+      if (feasibility_check == model->non_basics_count) { 
+      
+        printf("Optimal solution found!");
+        break;
+        exit(0);
     }
+
+      if (model->coeffs[non_basic_idx].status == LOWER && reduced_cost > best_reduced_cost) {
+        best_reduced_cost = reduced_cost;
+        entering_var_idx = i;
+        entering_var = non_basic_idx;
+      } else if (model->coeffs[non_basic_idx].status == UPPER && fabs(reduced_cost) > best_reduced_cost) {
+        best_reduced_cost = fabs(reduced_cost);
+        entering_var_idx = i;
+        entering_var = non_basic_idx;
+      }
+    }
+      printf("Entering variable chosen is %i with the index %i with reduced cost of %f \n", entering_var, entering_var_idx, best_reduced_cost); 
+      exit(0);
+      
+    
+
   }
 }
 
+void SolveBounded(Model *model) {
+  // I need to remember that I won't adjust bounds here at all, bound
+  // arithmetics will have to be considered while working on the algorithm The
+  // reason for this is because I want to save some CPU cycles
+  TransformModel(model);
+  ValidateModelPointers(model);
+  BoundedSimplex(model);
+}
 
+void TransformBoundedModel(Model *model) {
 
-
-
-void SolveBounded(Model * model) {
-    // I need to remember that I won't adjust bounds here at all, bound
-    // arithmetics will have to be considered while working on the algorithm The
-    // reason for this is because I want to save some CPU cycles
-    TransformBoundedModel(model);
-    ValidateModelPointers(model);
-    BoundedSimplex(model);
-  }
-
-
-
-void TransformBoundedModel(Model* model){
-  
-if (!model) {
+  if (!model) {
     fprintf(stderr, "Error: NULL model pointer\n");
     exit(1);
   }
 
-// subtracking the bounds from the RHS values
+  // subtracking the bounds from the RHS values
 
-for (size_t j = 0; j < model->num_constraints; j++) {
+  for (size_t j = 0; j < model->num_constraints; j++) {
     for (size_t i = 0; i < model->num_vars; i++) {
-        model->rhs_vector[j] -= model->lhs_matrix[j][i] * model->coeffs[i].lb;
+      model->rhs_vector[j] -= model->lhs_matrix[j][i] * model->coeffs[i].lb;
     }
-}
+  }
 
-// Pushing LBs to 0, reduce the range of the UBs and add a constant to objective function to consider these changes
+  // Pushing LBs to 0, reduce the range of the UBs and add a constant to
+  // objective function to consider these changes
 
-for (size_t i = 0; i < model->num_vars; i++) {
+  for (size_t i = 0; i < model->num_vars; i++) {
 
+    model->ObjectiveConstant += model->coeffs[i].value * model->coeffs[i].lb;
+    model->coeffs[i].ub -= model->coeffs[i].lb;
+    model->coeffs[i].originallb = model->coeffs[i].lb;
+    model->coeffs[i].lb = 0;
+  }
 
-  model->ObjectiveConstant += model->coeffs[i].value * model->coeffs[i].lb;
-  model->coeffs[i].ub -= model->coeffs[i].lb;
-  model->coeffs[i].originallb = model->coeffs[i].lb;
-  model->coeffs[i].lb = 0;
-
-
-  
-
-}
-
-int total_cols =
+  int total_cols =
       model->num_vars + model->slacks_surplus_count + model->artificials_count;
 
   size_t memory_needed =
@@ -227,7 +253,3 @@ int total_cols =
   }
   model->non_basics_count = non_basic_idx;
 }
-
-
-
-

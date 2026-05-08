@@ -96,7 +96,8 @@ void MainLoop(int argc, char *argv[]) {
       Solve_BigM_Debug(model);
     } else {
       //Solve(model);
-      Solve_BigM(model);
+      //Solve_BigM(model);
+      SolveBounded(model);
     }
   }
 
@@ -633,10 +634,11 @@ void ValidateModelPointers(Model *model) {
     size += sizeof(int);                             // Solver iterations
     size += sizeof(int) * model->non_basics_count;   // Non-basics
     size += sizeof(int) * model->integer_vars_count; // Integer variable indices
-    size_t n = model->num_constraints;
-    size_t inversion_memory =
-        n * (2 * n) * sizeof(double) + n * sizeof(double *);
-    size_t constraints_vector = n * sizeof(double);
+    size += sizeof(double); // BigM
+    size += sizeof(double); // Objective Constant
+
+
+
     // printf("Matrix inversion memory usage per iteration: %zu bytes (%.2f
     // KB)\n",
     //        inversion_memory, inversion_memory / 1024.0);

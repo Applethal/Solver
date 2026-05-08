@@ -16,6 +16,13 @@ typedef enum {
   BINARY = 5
 } VariableType;
 
+typedef enum { 
+  LOWER, 
+  UPPER, 
+  BASIC 
+} VarStatus;
+
+
 typedef struct {
   double value;
   VariableType type;  
@@ -23,6 +30,8 @@ typedef struct {
   double lb; 
   double ub;
   double originallb;
+  VarStatus status;
+
                       
 } Variable;
 
