@@ -1,5 +1,6 @@
 
 #include "core.h"
+#include <stdio.h>
 
 void Solve_BigM(Model *model) {
   TransformModel(model);
@@ -17,13 +18,8 @@ void Solve_BigM(Model *model) {
 
   // This was vibe coded as I was lazy to write my own deep copying method
 void RevisedSimplex(Model *model) {
-  // Big-M penalty applied AFTER negation
-  int artificial_start = model->num_vars + model->slacks_surplus_count;
-  for (int i = 0; i < model->artificials_count; i++) {
+  
 
-    model->coeffs[artificial_start + i].value =
-        -(model->bigM * 2 * model->num_vars);
-  }
 
   int termination = 0;
   size_t n = model->num_constraints;
@@ -119,15 +115,6 @@ void RevisedSimplex(Model *model) {
 }
 void RevisedSimplex_Debug(Model *model) {
 
-  printf("Big M penalty applied to artificial variables \n");
-
-  // Big-M penalty applied AFTER negation
-  int artificial_start = model->num_vars + model->slacks_surplus_count;
-  for (int i = 0; i < model->artificials_count; i++) {
-    model->coeffs[artificial_start + i].value =
-        -(model->bigM * 2 * model->num_vars);
-  }
-
   printf("Debug Mode: On\n");
   printf("Model after transformation:\n");
   if (model->objective == 0) {
@@ -136,8 +123,8 @@ void RevisedSimplex_Debug(Model *model) {
   } else {
     printf("Objective function mode: MAXIMIZE");
   }
-  printf("Number of variables: %d\n", model->num_vars);
-  printf("Number of constraints: %d\n", model->num_constraints);
+  printf("Number of variables: %zu\n", model->num_vars);
+  printf("Number of constraints: %zu\n", model->num_constraints);
   printf("Objective coefficients:");
   for (int i = 0; i < model->num_vars; i++) {
     printf(" %.1f", model->coeffs[i].value);

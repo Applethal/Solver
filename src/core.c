@@ -96,8 +96,8 @@ void MainLoop(int argc, char *argv[]) {
       Solve_BigM_Debug(model);
     } else {
       //Solve(model);
-      //Solve_BigM(model);
-      SolveBounded(model);
+      Solve_BigM(model);
+      // SolveBounded(model);
     }
   }
 
@@ -199,7 +199,7 @@ void TransformModel(Model *model) {
       model->coeffs[surplus_col].ub = DBL_MAX;
 
       model->coeffs[artif_col].type = ARTIFICIAL;
-      model->coeffs[artif_col].value = -1.0;
+      model->coeffs[artif_col].value = (model->bigM * 2 * model->num_vars);
       model->coeffs[artif_col].constraint_idx = 0;
       model->coeffs[artif_col].lb = 0;
       model->coeffs[artif_col].ub = DBL_MAX;
@@ -215,7 +215,7 @@ void TransformModel(Model *model) {
       model->lhs_matrix[i][artif_col] = 1.0;
 
       model->coeffs[artif_col].type = ARTIFICIAL;
-      model->coeffs[artif_col].value = -1.0;
+      model->coeffs[artif_col].value = (model->bigM * 2 * model->num_vars);
       model->coeffs[artif_col].constraint_idx = 0;
       model->coeffs[artif_col].lb = 0;
       model->coeffs[artif_col].ub = DBL_MAX;

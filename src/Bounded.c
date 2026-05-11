@@ -1,4 +1,5 @@
 #include "core.h"
+#include <float.h>
 #include <stdio.h>
 
 void BoundedSimplex(Model *model) {
@@ -43,8 +44,8 @@ void BoundedSimplex(Model *model) {
 
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
 
-    int entering_var_idx = 0;
-    int entering_var = 0;
+    int entering_var_idx = -1;
+    int entering_var = -1;
     UpdateRhs(model, original_RHS, B_inv);
 
     double best_reduced_cost = 0;
@@ -58,12 +59,7 @@ void BoundedSimplex(Model *model) {
         feasibility_check++;
       }
       
-      if (feasibility_check == model->non_basics_count) { 
-      
-        printf("Optimal solution found!");
-        break;
-        exit(0);
-    }
+
 
       if (model->coeffs[non_basic_idx].status == LOWER && reduced_cost > best_reduced_cost) {
         best_reduced_cost = reduced_cost;
@@ -75,10 +71,59 @@ void BoundedSimplex(Model *model) {
         entering_var = non_basic_idx;
       }
     }
-      printf("Entering variable chosen is %i with the index %i with reduced cost of %f \n", entering_var, entering_var_idx, best_reduced_cost); 
-      exit(0);
+    printf("Entering variable chosen is %i with the index %i with reduced cost of %f \n", entering_var, entering_var_idx, best_reduced_cost); 
       
+    if (feasibility_check == model->non_basics_count) { 
+      
+        printf("Optimal solution found!");
+        break;
+    }
+
+
+    double *Pivot = Get_pivot_column(B_inv, model, entering_var);
+
+    int exiting_var_idx = -1;
+    int exiting_var = -1;
+    double best_ratio = DBL_MAX;
+    double ratio;
+
+    for (size_t i = 0; i < n; i++) {
+      ratio = DBL_MAX;
+      if (Pivot[i] > 1e-6) {
+        ratio = original_RHS[i] / Pivot[i]; 
+
+      }
+      // I need to be extra careful here when handling BINARY and INTEGER variables, I just want to avoid having 2 OR statements for SLACK and ARTIFICIAL 
+// Maybe change it to check if it has Big M as an upper bound?
+// Maybe I should use Bitflags for this
+      else if (Pivot[i] < -1e-6 && model->coeffs[model->basics_vector[i]].type == STANDARD) {
+        ratio = (model->coeffs[model->basics_vector[i]].ub - original_RHS[i]) / -Pivot[i];
+
+      }
+      
+      if (ratio < best_ratio) {
+
+          best_ratio = ratio;
+          exiting_var_idx = i;
+          exiting_var = model->basics_vector[i]; 
+        
+      }
+    } 
+    if (best_ratio >= model->coeffs[entering_var].ub) {
+        
+        best_ratio = model->coeffs[entering_var].ub;
+        model->coeffs[entering_var].status = UPPER;
     
+    } else {
+    model->non_basics[entering_var_idx] = exiting_var;
+    model->basics_vector[exiting_var_idx] = entering_var;
+    model->coeffs[entering_var].status = BASIC;
+    model->coeffs[exiting_var].status = LOWER;
+}
+
+
+    
+    exit(0);
 
   }
 }
