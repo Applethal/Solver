@@ -12,8 +12,9 @@ typedef enum {
   STANDARD = 1,
   ARTIFICIAL = 2,
   SLACK = 3, 
-  INTEGER = 4,
-  BINARY = 5
+  SURPLUS = 4,
+  INTEGER = 5,
+  BINARY = 6
 } VariableType;
 
 typedef enum { 
@@ -131,7 +132,7 @@ int CheckIntegrity(Model *model, double* rhs_vector);
 void SolveBounded(Model* model); 
 void BoundedSimplexI(Model* model);
 void TransformBoundedModel(Model* model); // Bounded variable simplex will have a different procedure
-
+void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector);
 
 
 

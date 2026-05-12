@@ -1,21 +1,16 @@
 GCC			= gcc
-
 INPUT		= Instances/model_9.csv
-
 SRC_DIR		= src
 BUILD_DIR	= build
-
 SRC			= $(wildcard $(SRC_DIR)/*.c)
 OBJ			= $(SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-
-
 TARGET = $(BUILD_DIR)/rsa
 
 $(TARGET): $(OBJ)
-	$(GCC) -g -Iinclude -o $@ $^ -lm -Wall
+	$(GCC) -g -fsanitize=address,undefined -Iinclude -o $@ $^ -lm -Wall
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	$(GCC) -g -Iinclude -c $< -o $@
+	$(GCC) -g -fsanitize=address,undefined -Iinclude -c $< -o $@
 
 run: $(TARGET)
 	$(TARGET) $(INPUT)
@@ -27,7 +22,6 @@ clean:
 	rm -rf build/*
 
 .PHONY: run debug
-
 
 compile_commands.json:
 	bear -- make

@@ -96,8 +96,8 @@ void MainLoop(int argc, char *argv[]) {
       Solve_BigM_Debug(model);
     } else {
       //Solve(model);
-      Solve_BigM(model);
-      // SolveBounded(model);
+      //Solve_BigM(model);
+      SolveBounded(model);
     }
   }
 
@@ -114,6 +114,7 @@ void MainLoop(int argc, char *argv[]) {
 
 void TransformModel(Model *model) {
   // TODO: Make a seperate function for two phase to make it more efficient by directly attributing bigM to the artificials for the BigM method and -1 for the two phase method
+// TODO2: Add bounds to slacks
   if (!model) {
     fprintf(stderr, "Error: NULL model pointer\n");
     exit(1);
@@ -227,17 +228,14 @@ void TransformModel(Model *model) {
     }
   }
 
-  // Artificial values will get a value of 1. In previous versions, I gave them
-  // a value of max(coeffs) * 2 to penalize the objective function, now I can
-  // track them with their types Convert MINIMIZE to MAXIMIZE by negating all
-  // coefficients
+  //Convert MINIMIZE to MAXIMIZE by negating all coefficients
   if (model->objective == 0) {
     for (int i = 0; i < total_cols; i++)
       model->coeffs[i].value *= -1;
   }
 
   // Build non-basics list
-  model->non_basics = (int *)malloc(model->num_vars * sizeof(int));
+  model->non_basics = (int *)malloc((total_cols - model->num_constraints) * sizeof(int));
   int non_basic_idx = 0;
   for (int col = 0; col < total_cols; col++) {
     bool is_basic = false;
