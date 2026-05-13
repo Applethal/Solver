@@ -55,7 +55,6 @@ int RunPhase1(Model *model) {
     model->coeffs[i].value = saved[i];
   free(saved);
 
-  // Artificials are always -1e10 here because TransformModel already negated
 
   for (int i = 0; i < model->artificials_count; i++) {
     int art_col = model->artificials_vector[i];

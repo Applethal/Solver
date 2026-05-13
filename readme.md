@@ -22,6 +22,7 @@ TODO:
 
 9- Change parsing so that constraints are parsed before the objective function, making it less expensive for the CPU to request and fill memory upon transforming.
 
+10- Convert >= constraints to <= to compress models further and avoid having to add surplus variables.
 
 # How to contribute 
 

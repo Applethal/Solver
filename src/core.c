@@ -96,8 +96,8 @@ void MainLoop(int argc, char *argv[]) {
       Solve_BigM_Debug(model);
     } else {
       //Solve(model);
-      //Solve_BigM(model);
-      SolveBounded(model);
+      Solve_BigM(model);
+      //SolveBounded(model);
     }
   }
 
@@ -200,7 +200,7 @@ void TransformModel(Model *model) {
       model->coeffs[surplus_col].ub = DBL_MAX;
 
       model->coeffs[artif_col].type = ARTIFICIAL;
-      model->coeffs[artif_col].value = (model->bigM * 2 * model->num_vars);
+      model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);
       model->coeffs[artif_col].constraint_idx = 0;
       model->coeffs[artif_col].lb = 0;
       model->coeffs[artif_col].ub = DBL_MAX;
@@ -216,7 +216,7 @@ void TransformModel(Model *model) {
       model->lhs_matrix[i][artif_col] = 1.0;
 
       model->coeffs[artif_col].type = ARTIFICIAL;
-      model->coeffs[artif_col].value = (model->bigM * 2 * model->num_vars);
+      model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);
       model->coeffs[artif_col].constraint_idx = 0;
       model->coeffs[artif_col].lb = 0;
       model->coeffs[artif_col].ub = DBL_MAX;
@@ -229,10 +229,10 @@ void TransformModel(Model *model) {
   }
 
   //Convert MINIMIZE to MAXIMIZE by negating all coefficients
-  if (model->objective == 0) {
-    for (int i = 0; i < total_cols; i++)
-      model->coeffs[i].value *= -1;
-  }
+  // if (model->objective == 0) {
+  //   for (int i = 0; i < model->num_vars; i++)
+  //     model->coeffs[i].value *= -1;
+  // }
 
   // Build non-basics list
   model->non_basics = (int *)malloc((total_cols - model->num_constraints) * sizeof(int));
@@ -478,20 +478,20 @@ int CheckIntegrity(Model *model, double *rhs_vector) {
     }
 
     if (model->coeffs[basic_idx].type == INTEGER && rhs_vector[i] > 1e-6) {
-      double original_coeff = model->coeffs[basic_idx].value;
-      if (model->objective == 0) {
-        original_coeff *= -1;
-      }
+      double original_coeff = model->coeffs[basic_idx].value * model->objective;
+      // if (model->objective == 0) {
+      //   original_coeff *= -1;
+      // }
       if (fabs(rhs_vector[i] - floor(rhs_vector[i])) > 1e-6) {
         return basic_idx;
       }
     }
 
     if (model->coeffs[basic_idx].type == BINARY && rhs_vector[i] > 1e-6) {
-      double original_coeff = model->coeffs[basic_idx].value;
-      if (model->objective == 0) {
-        original_coeff *= -1;
-      }
+      double original_coeff = model->coeffs[basic_idx].value * model->objective;
+      // if (model->objective == 0) {
+      //   original_coeff *= -1;
+      // }
       if (fabs(rhs_vector[i] - floor(rhs_vector[i])) > 1e-6) {
         return basic_idx;
       }
@@ -512,26 +512,31 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector) {
       exit(0);
     }
 
-    model->objective_function += model->coeffs[basic_idx].value * rhs_vector[i];
+    model->objective_function += (model->coeffs[basic_idx].value * model->objective) * rhs_vector[i];
 
     // Print only standard variables with non-zero values
     if (model->coeffs[basic_idx].type == STANDARD && rhs_vector[i] > 1e-6) {
       // Convert back to original coefficient if it's a minimization problem
       // originally
       double original_coeff = model->coeffs[basic_idx].value;
-      if (model->objective == 0) {
-        original_coeff *= -1;
-      }
+      
 
+      // TODO: Instead of having an IF statement, maybe make it so that MAX problems are set to 1 and MIN problems are set to -1 in model->objective 
+      // Sadly, this will prevent any opportunity for me to use boolean memory size, I can somehow use a makeshift boolean by using a single char 
+      // value of 1 and -1 since these are the only expected values of model->objective, so I should not be afraid in this area.
+      // if (model->objective == 0) {
+      //   original_coeff *= -1;
+      // }
+      //
       printf("Value of variable x%i is %f with coefficient %f\n", basic_idx,
-             rhs_vector[i], original_coeff);
+             rhs_vector[i], original_coeff * model->objective);
     }
   }
 
-  // Convert objective function back for minimization
-  if (model->objective == 0) {
-    model->objective_function *= -1;
-  }
+  // // Convert objective function back for minimization
+  // if (model->objective == 0) {
+  //   model->objective_function *= -1;
+  // }
 
   printf("Optimal solution found! Objective value: %f\n",
          model->objective_function);

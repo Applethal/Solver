@@ -117,7 +117,7 @@ void RevisedSimplex_Debug(Model *model) {
 
   printf("Debug Mode: On\n");
   printf("Model after transformation:\n");
-  if (model->objective == 0) {
+  if (model->objective == -1) {
     printf("Objective function mode: MINIMIZE\n");
 
   } else {

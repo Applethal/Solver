@@ -1,7 +1,4 @@
 #include "core.h"
-#include <float.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector) {
     size_t n = model->num_constraints;
@@ -14,19 +11,22 @@ void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector) {
         }
     }
     
-    // Recover basic variable values
+    // getting basic variable values
     for (int i = 0; i < n; i++) {
         int basic_idx = model->basics_vector[i];
         if (model->coeffs[basic_idx].type == STANDARD) {
             double original_value = rhs_vector[i] + model->coeffs[basic_idx].originallb;
 
             model->objective_function += model->coeffs[basic_idx].value * rhs_vector[i];
-
+        if (model->objective == 0) {
+        original_value *= -1;
+      }
+ 
             printf("Value of variable x%i is %f\n", basic_idx, original_value);
         }
     }
     
-    // Recover non-basic variables at upper bound
+    // getting non-basic variables at upper bound
     for (int i = 0; i < model->non_basics_count; i++) {
         int non_basic_idx = model->non_basics[i];
         if (model->coeffs[non_basic_idx].status == UPPER && model->coeffs[non_basic_idx].type == STANDARD) {
@@ -77,13 +77,17 @@ model->coeffs[2].originallb = 0;
 model->coeffs[3].originallb = 2;
 model->coeffs[4].originallb = 0;
  
-    // Big-M penalty applied AFTER negation
-    int artificial_start = model->num_vars + model->slacks_surplus_count;
-    for (int i = 0; i < model->artificials_count; i++) {
-        model->coeffs[artificial_start + i].value =
-            -(model->bigM * 2 * model->num_vars);
-    }
- 
+    // // Big-M penalty applied AFTER negation
+    // int artificial_start = model->num_vars + model->slacks_surplus_count;
+    // for (int i = 0; i < model->artificials_count; i++) {
+    //
+    //     printf("Value of artificial before negation: %i value %f \n", artificial_start +i, model->coeffs[artificial_start+i].value);
+    //     model->coeffs[artificial_start + i].value =
+    //         -(model->bigM * 2 * model->num_vars);
+    //     printf("Value of artificial after negation: %i value %f\n", artificial_start +i, model->coeffs[artificial_start+i].value);
+    //
+    // }
+    //
     // Set initial status for all non-basics
     for (int i = 0; i < model->non_basics_count; i++) {
         model->coeffs[model->non_basics[i]].status = LOWER;
@@ -351,7 +355,7 @@ void TransformBoundedModel(Model *model) {
       model->coeffs[surplus_col].ub = DBL_MAX;
 
       model->coeffs[artif_col].type = ARTIFICIAL;
-      model->coeffs[artif_col].value = -1.0;
+      model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);
       model->coeffs[artif_col].constraint_idx = 0;
       model->coeffs[artif_col].lb = 0;
       model->coeffs[artif_col].ub = DBL_MAX;
@@ -367,7 +371,7 @@ void TransformBoundedModel(Model *model) {
       model->lhs_matrix[i][artif_col] = 1.0;
 
       model->coeffs[artif_col].type = ARTIFICIAL;
-      model->coeffs[artif_col].value = -1.0;
+      model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);
       model->coeffs[artif_col].constraint_idx = 0;
       model->coeffs[artif_col].lb = 0;
       model->coeffs[artif_col].ub = DBL_MAX;
@@ -378,13 +382,11 @@ void TransformBoundedModel(Model *model) {
       artificial_idx++;
     }
   }
+  
 
-  // Artificial values will get a value of 1. In previous versions, I gave them
-  // a value of max(coeffs) * 2 to penalize the objective function, now I can
-  // track them with their types Convert MINIMIZE to MAXIMIZE by negating all
-  // coefficients
+  // MIN problems are now MAX
   if (model->objective == 0) {
-    for (int i = 0; i < total_cols; i++)
+    for (int i = 0; i < model->num_vars; i++)
       model->coeffs[i].value *= -1;
   }
 

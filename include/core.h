@@ -81,7 +81,7 @@ typedef struct Node{
 
 typedef struct
 {
-  bool objective;           // MINIMIZE 0, MAXIMIZE 1
+  char objective;           // MINIMIZE -1, MAXIMIZE 1
   size_t num_constraints;    // Number of constraints
   size_t num_vars;           // Number of variables
   double **lhs_matrix;       // Constraints Left hand side

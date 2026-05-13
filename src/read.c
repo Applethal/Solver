@@ -32,7 +32,7 @@ Model *ReadCsv(FILE *csvfile) {
   }
 
   if (strcmp(token, "MINIMIZE") == 0) {
-    model->objective = 0;
+    model->objective = -1;
   } else if (strcmp(token, "MAXIMIZE") == 0) {
     model->objective = 1;
   } else {
@@ -90,7 +90,7 @@ Model *ReadCsv(FILE *csvfile) {
     char *b_marker = strchr(token, 'B');
     if (i_marker != NULL) {
       *i_marker = '\0';
-      model->coeffs[idx].value = atof(token);
+      model->coeffs[idx].value = atof(token) * model->objective;
       model->coeffs[idx].type = INTEGER;
       model->coeffs[idx].constraint_idx =
           model->num_constraints - model->integer_vars_count - 1;
@@ -98,14 +98,14 @@ Model *ReadCsv(FILE *csvfile) {
       model->integer_vars_count += 1;
     } else if (b_marker != NULL) {
       *b_marker = '\0';
-      model->coeffs[idx].value = atof(token);
+      model->coeffs[idx].value = atof(token) * model->objective;
       model->coeffs[idx].type = BINARY;
       model->coeffs[idx].constraint_idx =
           model->num_constraints - model->integer_vars_count - 1;
       model->integer_vars_idx[model->integer_vars_count] = idx;
       model->integer_vars_count += 1;
     } else {
-      model->coeffs[idx].value = atof(token);
+      model->coeffs[idx].value = atof(token) * model->objective;
       model->coeffs[idx].type = STANDARD;
       model->coeffs[idx].constraint_idx = 0;
     }
