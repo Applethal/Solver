@@ -1,6 +1,7 @@
 #ifndef CORE_H
 #define CORE_H
 
+#include <stddef.h>
 #include <stdio.h>
 #include <float.h>
 #include <stdlib.h>
@@ -27,7 +28,6 @@ typedef enum {
 typedef struct {
   double value;
   VariableType type;  
-  int constraint_idx; // -1 by default if the variable has no integrity constraints. This is going to help with the branch and bound to help track which bound constraint this variable corresponds to. For Integer variables, the value should be constraint_idx - 1 - integer variable count.
   double lb; 
   double ub;
   double originallb;
@@ -35,6 +35,15 @@ typedef struct {
 
                       
 } Variable;
+
+
+// Bit flags just to help decide which solving mode to go for 
+#define SOLVER_INTEGER  (1 << 0)  
+#define SOLVER_BOUNDED  (1 << 1)  
+#define SOLVER_DEBUG    (1 << 2)  
+
+
+
 
 // I was planning to make an API out of this code logic for an online interface
 // hence why I defined some limits on what the user can give to the code, feel
@@ -84,6 +93,7 @@ typedef struct
   char objective;           // MINIMIZE -1, MAXIMIZE 1
   size_t num_constraints;    // Number of constraints
   size_t num_vars;           // Number of variables
+  size_t bounded_vars;       // Number of bounded variables
   double **lhs_matrix;       // Constraints Left hand side
   Variable *coeffs;          // Variable objective coefficients
   double *rhs_vector;        // Right hand side vector of the constraints
@@ -99,7 +109,7 @@ typedef struct
   int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course. This also counts it for binary variables
   int *integer_vars_idx; // Self explanatory, contains the idx of each integer var.
   double bigM; // equals highest avaiable coefficient * 2, used only for the simplex with BigM method 
-  double ObjectiveConstant; // When transforming the models via the bounded variable simplex, I will store the constant here 
+  double ObjectiveConstant; // When transforming the models via the bounded variable simplex, I will store the constant here  
 } Model;
 
 // Function declarations
@@ -130,7 +140,7 @@ int CheckIntegrity(Model *model, double* rhs_vector);
 // Bounded variable Simplex 
 
 void SolveBounded(Model* model); 
-void BoundedSimplexI(Model* model);
+void BoundedSimplex(Model* model);
 void TransformBoundedModel(Model* model); // Bounded variable simplex will have a different procedure
 void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector);
 
@@ -146,6 +156,8 @@ void Solve(Model *model);       // Solver routine using the Two-Phase scheme
 void Solve_BigM(Model *model); // Solver routine using BigM, keeping it here for the sake of legacy
 void Solve_BigM_Debug(Model *model);
 
+
+// These are deprecated and I will have to remove them
 void ModifyConstraint_IntegerUB(Model * model, int index, double value);
 void ModifyConstraint_IntegerLB(Model * model, int index, double value);
 void ModifyConstraint_BinaryUB(Model * model, int index); // Binary variables already have known bounds of 1s and 0s

@@ -1,5 +1,8 @@
 #include "core.h"
 
+
+
+
 void IntegerSolvingLoop(Model *model) {
 
   Model *model_copy = deep_copy_model(model);
@@ -10,8 +13,8 @@ void IntegerSolvingLoop(Model *model) {
   ValidateModelPointers(model);
   int var_test = RevisedSimplex_Integer(model, NULL, NULL, NULL, NULL);
   printf("The first non integer variable is %i \n", var_test);
-  ModifyConstraint_IntegerUB(model_copy,
-                             model_copy->coeffs[var_test].constraint_idx, 10);
+  // ModifyConstraint_IntegerUB(model_copy,
+  //                            model_copy->coeffs[var_test].constraint_idx, 10);
 
   printf("Model after solving root node relaxation:");
 

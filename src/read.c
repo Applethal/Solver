@@ -1,5 +1,5 @@
-
 #include "core.h"
+#include <float.h>
 
 
 
@@ -57,6 +57,12 @@ Model *ReadCsv(FILE *csvfile) {
   }
   model->num_constraints = atoi(token);
 
+  model->bounded_vars = 0;
+token = strtok(NULL, ",");
+if (token) {
+    model->bounded_vars = atoi(token);
+}
+
   if (model->num_vars > MAX_VARS) {
     fprintf(stderr, "Error: Too many variables (%zu). Maximum allowed: %d\n",
             model->num_vars, MAX_VARS);
@@ -92,22 +98,24 @@ Model *ReadCsv(FILE *csvfile) {
       *i_marker = '\0';
       model->coeffs[idx].value = atof(token) * model->objective;
       model->coeffs[idx].type = INTEGER;
-      model->coeffs[idx].constraint_idx =
-          model->num_constraints - model->integer_vars_count - 1;
+      model->coeffs[idx].lb = 0; 
+      model->coeffs[idx].ub = DBL_MAX; 
       model->integer_vars_idx[model->integer_vars_count] = idx;
       model->integer_vars_count += 1;
     } else if (b_marker != NULL) {
       *b_marker = '\0';
       model->coeffs[idx].value = atof(token) * model->objective;
       model->coeffs[idx].type = BINARY;
-      model->coeffs[idx].constraint_idx =
-          model->num_constraints - model->integer_vars_count - 1;
+      model->coeffs[idx].ub = 1;
+      model->coeffs[idx].lb = 0;
       model->integer_vars_idx[model->integer_vars_count] = idx;
       model->integer_vars_count += 1;
+      
     } else {
       model->coeffs[idx].value = atof(token) * model->objective;
       model->coeffs[idx].type = STANDARD;
-      model->coeffs[idx].constraint_idx = 0;
+      model->coeffs[idx].lb = 0;
+      model->coeffs[idx].ub = DBL_MAX;
     }
 
     if (model->bigM < model->coeffs[idx].value) {
@@ -244,6 +252,44 @@ Model *ReadCsv(FILE *csvfile) {
     model->rhs_vector[i] = atof(token);
   }
 
+  // Read bounds if any were declared in the header
+  if (model->bounded_vars > 0) {
+    if (!fgets(line, sizeof(line), csvfile)) {
+      fprintf(stderr, "Error: Expected BOUNDS line but reached end of file\n");
+      // cleanup omitted for brevity — mirror your pattern above
+      return NULL;
+    }
+    line[strcspn(line, "\r\n")] = 0;
+    if (strncmp(line, "BOUNDS", 6) != 0) {
+      fprintf(stderr, "Error: Expected 'BOUNDS' sentinel but got '%s'\n", line);
+      return NULL;
+    }
+
+    for (int i = 0; i < model->bounded_vars; i++) {
+      if (!fgets(line, sizeof(line), csvfile)) {
+        fprintf(stderr, "Error: Unexpected end of file at bound %d\n", i);
+        return NULL;
+      }
+      token = strtok(line, ",");
+      if (!token) { fprintf(stderr, "Error: Missing var index in bound %d\n", i); return NULL; }
+      int var_idx = atoi(token) - 1;  // 1-based in file, 0-based indexing in the program
+
+      if (var_idx < 0 || var_idx >= model->num_vars) {
+        fprintf(stderr, "Error: Bound %d references out-of-range variable %d\n", i, var_idx + 1);
+        return NULL;
+      }
+
+      token = strtok(NULL, ",");
+      if (!token) { fprintf(stderr, "Error: Missing lower bound for var %d\n", var_idx + 1); return NULL; }
+      model->coeffs[var_idx].lb = atof(token);
+
+      token = strtok(NULL, ",");
+      if (!token) { fprintf(stderr, "Error: Missing upper bound for var %d\n", var_idx + 1); return NULL; }
+      char *trimmed = token + strspn(token, " \t");
+      model->coeffs[var_idx].ub = (strncmp(trimmed, "inf", 3) == 0) ? DBL_MAX : atof(token);
+    }
+  }
+
   model->artificials_vector = NULL;
   model->basics_vector = NULL;
   model->non_basics = NULL;
@@ -261,5 +307,3 @@ Model *ReadCsv(FILE *csvfile) {
   //
 return model;
 }
-
-

@@ -157,8 +157,7 @@ void RevisedSimplex_Debug(Model *model) {
     int feasibility_check = 0;
     if (model->solver_iterations == MAX_ITERATIONS) {
       printf("Max iterations reached. Terminating!\n");
-      FreeModel(model);
-      exit(0);
+      return;
     }
 
     printf("Beginning solver iteration %i ... \n", model->solver_iterations);
