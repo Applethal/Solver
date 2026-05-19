@@ -16,7 +16,6 @@ void Solve_BigM(Model *model) {
     RevisedSimplex_Debug(model);
   }
 
-  // This was vibe coded as I was lazy to write my own deep copying method
 void RevisedSimplex(Model *model) {
   
 

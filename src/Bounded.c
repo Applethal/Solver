@@ -1,4 +1,12 @@
 #include "core.h"
+#include <float.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+
+#define MIN3IDX(a,b,c) (((a)<=(b)&&(a)<=(c)) ? 1 : (((b)<=(a)&&(b)<=(c)) ? 2 : 3))
+
+
 
 void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector) {
   size_t n = model->num_constraints;
@@ -72,10 +80,9 @@ for (int i = 0; i < model->num_constraints; i++) {
         printf("%6.2f ", model->lhs_matrix[i][j]);
     printf("\n");
 }
-printf("Objective constant: %f\n", model->ObjectiveConstant);
+printf("Objective constant: %lf\n", model->ObjectiveConstant);
 
 printf("=========================\n");
-
 
   int termination = 0;
   size_t n = model->num_constraints;
@@ -108,27 +115,16 @@ printf("=========================\n");
       int non_basic_idx = model->non_basics[i];
       double reduced_cost =
           Get_ReducedPrice(model, B_inv, non_basic_idx, Simplex_multiplier);
-
-      if (model->coeffs[non_basic_idx].status == LOWER && reduced_cost <= 0) {
-        feasibility_check++;
-      } else if (model->coeffs[non_basic_idx].status == UPPER &&
-                 reduced_cost >= 0) {
-        feasibility_check++;
-      }
-
-      if (model->coeffs[non_basic_idx].status == LOWER &&
-          reduced_cost > best_reduced_cost) {
+      if (reduced_cost > best_reduced_cost) {
         best_reduced_cost = reduced_cost;
         entering_var_idx = i;
         entering_var = non_basic_idx;
-      } else if (model->coeffs[non_basic_idx].status == UPPER &&
-                 reduced_cost < 0 && fabs(reduced_cost) > best_reduced_cost) {
-        best_reduced_cost = fabs(reduced_cost);
-        entering_var_idx = i;
-        entering_var = non_basic_idx;
+      }
+      if (reduced_cost <= 0) {
+        feasibility_check++;
       }
     }
-
+    printf("Best reduced cost is %lf, entering variable is %i which has the index x%i \n", best_reduced_cost, entering_var, entering_var_idx+1);
     if (feasibility_check == model->non_basics_count) {
       printf("Optimal solution found! \n");
       Get_ObjectiveFunctionBounded(model, original_RHS);
@@ -143,76 +139,79 @@ printf("=========================\n");
 
     double *Pivot = Get_pivot_column(B_inv, model, entering_var);
 
-    // Determine direction: UPPER-status entering var moves downward
-    double direction =
-        (model->coeffs[entering_var].status == UPPER) ? -1.0 : 1.0;
-
+    
     int exiting_var_idx = -1;
-    int exiting_var = -1;
+    int exiting_var = -1; 
     double best_ratio = DBL_MAX;
     double ratio;
+    // neg here refers to a_{ij} that is negative, if there is none, then this ratio test is best left at infinity
+    double best_ratio_neg = DBL_MAX;
+    double ratio_neg = DBL_MAX; 
+    int exiting_var_idx_neg = -1;
+    int exiting_var_neg = -1;
 
     for (size_t i = 0; i < n; i++) {
-      ratio = DBL_MAX;
-      double piv = Pivot[i] * direction;
-
-      if (piv > 1e-6) {
-        // Basic variable hits its lower bound (0)
-        ratio = original_RHS[i] / piv;
-      } else if (piv < -1e-6 &&
-                 model->coeffs[model->basics_vector[i]].ub < DBL_MAX) {
-        // Basic variable hits its upper bound
-        ratio = (model->coeffs[model->basics_vector[i]].ub - original_RHS[i]) /
-                -piv;
+      if (Pivot[i] <= 1e-6) {
+          int idx = model->basics_vector[i]; 
+          ratio_neg = (model->coeffs[idx].ub - original_RHS[i]) / Pivot[i];
+          
+          if (ratio_neg < best_ratio_neg) {
+              best_ratio_neg = ratio_neg;
+              exiting_var_idx_neg = i; 
+              exiting_var_neg = model->basics_vector[i];
+          }
+}
+      if (Pivot[i] >= 1e-6) {
+          
+          ratio = original_RHS[i] / Pivot[i];
+          if (ratio < best_ratio) {
+              best_ratio = ratio;
+              exiting_var_idx = i;
+              exiting_var = model->basics_vector[i];    
+          }
       }
-
-      if (ratio < best_ratio) {
-        best_ratio = ratio;
-        exiting_var_idx = i;
-        exiting_var = model->basics_vector[i];
+}
+    if (exiting_var_idx == -1) { // Honestly, do I also need to check if neg is also -1? What if the entire column has no positive A_ij?
+      printf("LP is unbounded! Terminating!\n");
+      free(Pivot);
+      for (size_t i = 0; i < n; i++) {
+        free(B_inv[i]);
       }
+      free(B_inv);
+      free(Simplex_multiplier);
+
+      return;
     }
+  int winner_ratio = MIN3IDX(best_ratio, best_ratio_neg, model->coeffs[entering_var].ub); // 1 for ratio 1, 2 for ratio 2 and 3 if upper bound wins 
+  switch (winner_ratio) {
+  case 1:
+    model->non_basics[entering_var_idx] = exiting_var;
+    model->basics_vector[exiting_var_idx] = entering_var;
 
-    if (model->coeffs[entering_var].ub <= best_ratio) {
-      // Entering variable flips to/from its bound without entering the basis
-
-      best_ratio = model->coeffs[entering_var].ub;
-
-      if (model->coeffs[entering_var].status == LOWER) {
-        model->coeffs[entering_var].status = UPPER;
-        // Subtract the column contribution from stored RHS
-        for (size_t i = 0; i < n; i++) {
-          model->rhs_vector[i] -= model->lhs_matrix[i][entering_var] *
-                                  model->coeffs[entering_var].ub;
-        }
-      } else {
-        // Was UPPER, flip back to LOWER
-        model->coeffs[entering_var].status = LOWER;
-        for (size_t i = 0; i < n; i++) {
-          model->rhs_vector[i] += model->lhs_matrix[i][entering_var] *
-                                  model->coeffs[entering_var].ub;
-        }
+    break;
+  case 2:
+    // code block
+    break;
+  case 3:
+  // Not sure if this is the right thing to do:
+  for (size_t i = 0; i < n ; i++) {
+      model->rhs_vector[i] -= model->lhs_matrix[i][entering_var] * model->coeffs[entering_var].ub;
+      if (model->rhs_vector[i] < 0) {
+         FlipConstraint(model, i); 
+      
       }
+      model->ObjectiveConstant += model->coeffs[entering_var].ub * model->coeffs[entering_var].value; 
+  
+  }
+  
+  
+}
+    
 
-    } else {
-      model->non_basics[entering_var_idx] = exiting_var;
-      model->basics_vector[exiting_var_idx] = entering_var;
-      model->coeffs[entering_var].status = BASIC;
 
-      // Exiting variable goes to lower or upper bound depending on which it hit
-      double piv = Pivot[exiting_var_idx] * direction;
-      if (piv > 1e-6) {
-        // Hit lower bound
-        model->coeffs[exiting_var].status = LOWER;
-      } else {
-        // Hit upper bound — update stored RHS for this new UPPER non-basic
-        model->coeffs[exiting_var].status = UPPER;
-        for (size_t i = 0; i < n; i++) {
-          model->rhs_vector[i] -=
-              model->lhs_matrix[i][exiting_var] * model->coeffs[exiting_var].ub;
-        }
-      }
-    }
+  
+
+
 
     model->solver_iterations++;
     free(Pivot);
@@ -241,14 +240,17 @@ void TransformBoundedModel(Model *model) {
   }
 
   // subtracking the bounds from the RHS values
-// TODO: What if RHS becomes negative? 
+// TODO: What if RHS becomes negative?  
 
    for (size_t j = 0; j < model->num_constraints; j++) {
     for (size_t i = 0; i < model->num_vars; i++) {
       model->rhs_vector[j] -= model->lhs_matrix[j][i] * model->coeffs[i].lb;
     }
+    if (model->rhs_vector[j] < 0 ) {
+        FlipConstraint(model, j); // Yeah this should do, for now. Later I will have to probably destroy the constraint since it becomes redundant if the LHS is positive
+    
+    }
   }
-
   // Pushing LBs to 0, reduce the range of the UBs and add a constant to
   // objective function to consider these changes
 

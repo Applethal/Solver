@@ -109,7 +109,7 @@ typedef struct
   int integer_vars_count; // Counts the number of Integer variables. If the count is 0, then no Integer model is detected of course. This also counts it for binary variables
   int *integer_vars_idx; // Self explanatory, contains the idx of each integer var.
   double bigM; // equals highest avaiable coefficient * 2, used only for the simplex with BigM method 
-  double ObjectiveConstant; // When transforming the models via the bounded variable simplex, I will store the constant here  
+  double ObjectiveConstant; // When transforming the models via the bounded variable simplex, I will store the constant here. UPDATE: I don't need this member anymore, I figured I can just increase the objective function instead. Free 8 bytes gain!!! 
 } Model;
 
 // Function declarations
@@ -131,6 +131,10 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector);
 void FreeModel(Model *model);
 void ValidateModelPointers(Model *model);
 size_t ModelMemSize(Model *model);
+void FlipConstraint(Model *model, int idx);
+
+
+
 //Integer solving funcs
 int RevisedSimplex_Integer(Model *model, bool warmstart, int *parent_basis, int *parent_non_basics, double *solution_out); // return index of the first non-integer variable. If -1 is returned then the solution is integer
 void IntegerSolvingLoop(Model *model);

@@ -532,6 +532,7 @@ size_t ModelMemSize(Model *model) {
   return size;
 }
 
+// This was vibe coded as I was lazy to write my own deep copying method
 Model *deep_copy_model(const Model *model) {
   if (!model)
     return NULL;
@@ -627,3 +628,34 @@ Model *deep_copy_model(const Model *model) {
 
   return model_copy;
 }
+
+
+void FlipConstraint(Model *model, int idx){
+
+    printf("Constraint %i has a negative RHS, consider reformulating please to save time \n", idx);
+  
+    model->rhs_vector[idx] *= -1; 
+
+    for (size_t i = 0; i < model->num_vars; i++) {
+      
+        model->lhs_matrix[idx][i] *= -1;
+    }
+
+    if (model->constraints_symbols[idx] == 'G') {
+        
+        model->constraints_symbols[idx] = 'L';
+      
+    } else if (model->constraints_symbols[idx] == 'L') {
+
+      model->constraints_symbols[idx] = 'G';
+
+
+        
+    }
+    
+
+
+
+
+}
+
