@@ -2,63 +2,16 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
+// TODO: Work on the objective function, btw the objective function already has the constant from variables that hit the upper bound so just take the RHS values 
 
-
-#define MIN3IDX(a,b,c) (((a)<=(b)&&(a)<=(c)) ? 1 : (((b)<=(a)&&(b)<=(c)) ? 2 : 3))
-
+#define MIN3IDX(a,b,c) (((a)<=(b)&&(a)<=(c)) ? 1 : (((b)<(a)&&(b)<=(c)) ? 2 : 3))
 
 
 void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector) {
   size_t n = model->num_constraints;
 
-  for (int i = 0; i < n; i++) {
-    int basic_idx = model->basics_vector[i];
-    if (model->coeffs[basic_idx].type == ARTIFICIAL && rhs_vector[i] > 1e-6) {
-      printf("Model Infeasible. Artificial basic variable has positive value. "
-             "Terminating!\n");
-      return;
-    }
   }
 
-  // getting basic variable values
-  for (int i = 0; i < n; i++) {
-    int basic_idx = model->basics_vector[i];
-    if (model->coeffs[basic_idx].type == STANDARD) {
-      double original_value = rhs_vector[i] + model->coeffs[basic_idx].originallb;
-
-      model->objective_function += model->coeffs[basic_idx].value * rhs_vector[i];
-      if (model->objective == -1) {
-        original_value *= -1;
-      }
-
-      printf("Value of variable x%i is %f\n", basic_idx, original_value);
-    }
-  }
-
-  // getting non-basic variables at upper bound
-  for (int i = 0; i < model->non_basics_count; i++) {
-    int non_basic_idx = model->non_basics[i];
-    if (model->coeffs[non_basic_idx].type == STANDARD) {
-        if (model->coeffs[non_basic_idx].status == UPPER) {
-            double original_value = model->coeffs[non_basic_idx].ub +
-                                    model->coeffs[non_basic_idx].originallb;
-            model->objective_function += model->coeffs[non_basic_idx].value *
-                                         model->coeffs[non_basic_idx].ub;
-            printf("Value of variable x%i is %f\n", non_basic_idx, original_value);
-        } else {
-            // LOWER: value is 0 in transformed space
-            printf("Value of variable x%i is %f\n", non_basic_idx,
-                   model->coeffs[non_basic_idx].originallb);
-        }
-    }
-}
-
-  model->objective_function += model->ObjectiveConstant;
-
-  if (model->objective == -1) {
-    model->objective_function *= -1;
-  }
-}
 
 void BoundedSimplex(Model *model) {
 
@@ -80,7 +33,7 @@ for (int i = 0; i < model->num_constraints; i++) {
         printf("%6.2f ", model->lhs_matrix[i][j]);
     printf("\n");
 }
-printf("Objective constant: %lf\n", model->ObjectiveConstant);
+printf("Objective constant: %lf\n", model->objective_function);
 
 printf("=========================\n");
 
@@ -124,10 +77,10 @@ printf("=========================\n");
         feasibility_check++;
       }
     }
-    printf("Best reduced cost is %lf, entering variable is %i which has the index x%i \n", best_reduced_cost, entering_var, entering_var_idx+1);
+    printf("Best reduced cost is %lf, entering variable is x%i which has the index %i \n", best_reduced_cost, entering_var+1, entering_var_idx);
     if (feasibility_check == model->non_basics_count) {
       printf("Optimal solution found! \n");
-      Get_ObjectiveFunctionBounded(model, original_RHS);
+      //Get_ObjectiveFunctionBounded(model, original_RHS);
       termination++;
       for (size_t i = 0; i < n; i++) {
         free(B_inv[i]);
@@ -153,7 +106,7 @@ printf("=========================\n");
     for (size_t i = 0; i < n; i++) {
       if (Pivot[i] <= 1e-6) {
           int idx = model->basics_vector[i]; 
-          ratio_neg = (model->coeffs[idx].ub - original_RHS[i]) / Pivot[i];
+          ratio_neg = (model->coeffs[idx].ub - original_RHS[i]) / -Pivot[i];
           
           if (ratio_neg < best_ratio_neg) {
               best_ratio_neg = ratio_neg;
@@ -171,7 +124,7 @@ printf("=========================\n");
           }
       }
 }
-    if (exiting_var_idx == -1) { // Honestly, do I also need to check if neg is also -1? What if the entire column has no positive A_ij?
+    if (exiting_var_idx == -1 && exiting_var_idx_neg == -1) { 
       printf("LP is unbounded! Terminating!\n");
       free(Pivot);
       for (size_t i = 0; i < n; i++) {
@@ -185,28 +138,72 @@ printf("=========================\n");
   int winner_ratio = MIN3IDX(best_ratio, best_ratio_neg, model->coeffs[entering_var].ub); // 1 for ratio 1, 2 for ratio 2 and 3 if upper bound wins 
   switch (winner_ratio) {
   case 1:
+    printf("Ratio 1 wins here, exiting var is x%i and has an index of %i\n", exiting_var+1, exiting_var_idx);
     model->non_basics[entering_var_idx] = exiting_var;
     model->basics_vector[exiting_var_idx] = entering_var;
 
     break;
   case 2:
     // code block
+    printf("Ratio 2 wins here, exiting var is x%i and has an index of %i\n", exiting_var_neg+1, exiting_var_idx_neg);
+    for (size_t i = 0; i < n; i++) {
+        model->rhs_vector[i] -= model->lhs_matrix[i][exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
+        model->lhs_matrix[i][exiting_var_neg] *= -1;
+    }
+    model->coeffs[exiting_var_neg].value *= -1;
+    model->basics_vector[exiting_var_idx_neg] = entering_var;
+    model->non_basics[entering_var_idx] = exiting_var_neg;
+
     break;
   case 3:
+  printf("Ratio 3 wins here, no exiting variable here, we just substitute the entering variable x%i with its upper bound and flip the entering var's sign\n", entering_var +1);
+
   // Not sure if this is the right thing to do:
   for (size_t i = 0; i < n ; i++) {
       model->rhs_vector[i] -= model->lhs_matrix[i][entering_var] * model->coeffs[entering_var].ub;
-      if (model->rhs_vector[i] < 0) {
-         FlipConstraint(model, i); 
-      
-      }
-      model->ObjectiveConstant += model->coeffs[entering_var].ub * model->coeffs[entering_var].value; 
-  
+      model->lhs_matrix[i][entering_var] *= -1; 
+        
   }
+  model->objective_function += model->coeffs[entering_var].ub * model->coeffs[entering_var].value; 
+  model->coeffs[entering_var].value *= -1;
   
   
 }
     
+  printf("=== MODEL INPUT DEBUG ===\n");
+printf("RHS: ");
+for (int i = 0; i < model->num_constraints; i++)
+    printf("%f ", model->rhs_vector[i]);
+printf("\n");
+
+for (int i = 0; i < model->num_vars; i++)
+    printf("x%d: ub=%f originallb=%f value=%f status=%d\n",
+           i, model->coeffs[i].ub, model->coeffs[i].originallb,
+           model->coeffs[i].value, model->coeffs[i].status);
+
+printf("LHS matrix:\n");
+int total_cols = model->num_vars + model->slacks_surplus_count + model->artificials_count;
+for (int i = 0; i < model->num_constraints; i++) {
+    for (int j = 0; j < total_cols; j++)
+        printf("%6.2f ", model->lhs_matrix[i][j]);
+    printf("\n");
+}
+printf("Objective constant: %lf\n", model->objective_function);
+
+printf("Basics vector:\n");
+for (int i = 0; i < model->non_basics_count; i++) {
+  printf(" %i ", model->non_basics[i]+1);
+
+}
+printf("\n non basics: \n");
+
+for (int i = 0; i < 2; i++) {
+
+  printf(" %i ", model->basics_vector[i]+1 );
+}
+
+printf("\n");
+printf("=========================\n");
 
 
   
@@ -214,6 +211,8 @@ printf("=========================\n");
 
 
     model->solver_iterations++;
+
+    
     free(Pivot);
     for (size_t i = 0; i < n; i++) {
       free(B_inv[i]);
@@ -256,7 +255,7 @@ void TransformBoundedModel(Model *model) {
 
   for (size_t i = 0; i < model->num_vars; i++) {
 
-    model->ObjectiveConstant += (model->coeffs[i].value * model->coeffs[i].lb) * model->objective;
+    model->objective_function += (model->coeffs[i].value * model->coeffs[i].lb) * model->objective;
     model->coeffs[i].ub -= model->coeffs[i].lb;
     model->coeffs[i].originallb = model->coeffs[i].lb;
     model->coeffs[i].lb = 0;
@@ -324,7 +323,7 @@ void TransformBoundedModel(Model *model) {
       model->coeffs[col].type = SLACK;
       model->coeffs[col].value = 0.0;
       model->coeffs[col].lb = 0;
-      model->coeffs[col].ub = DBL_MAX;
+      model->coeffs[col].ub = model->rhs_vector[i];
       slack_idx++;
     } else if (model->constraints_symbols[i] == 'G') {
       // Greater-than: add surplus and artificial
@@ -337,7 +336,7 @@ void TransformBoundedModel(Model *model) {
       model->coeffs[surplus_col].type = SLACK;
       model->coeffs[surplus_col].value = 0.0;
       model->coeffs[surplus_col].lb = 0;
-      model->coeffs[surplus_col].ub = DBL_MAX;
+      model->coeffs[surplus_col].ub = model->rhs_vector[i];
 
       model->coeffs[artif_col].type = ARTIFICIAL;
       model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);
@@ -366,12 +365,6 @@ void TransformBoundedModel(Model *model) {
     }
   }
 
-  // MIN problems are now MAX
-  if (model->objective == 0) {
-    for (int i = 0; i < model->num_vars; i++)
-      model->coeffs[i].value *= -1;
-  }
-
   model->non_basics = (int *)malloc( (total_cols - model->num_constraints) * sizeof(int));
   int non_basic_idx = 0;
   for (int col = 0; col < total_cols; col++) {
@@ -384,7 +377,7 @@ void TransformBoundedModel(Model *model) {
     }
     if (!is_basic) {
       model->non_basics[non_basic_idx++] = col;
-      model->coeffs[col].status = LOWER;
+      model->coeffs[col].status = 1;
     }
   }
 

@@ -8,8 +8,7 @@ void TransformModel(Model *model) {
     fprintf(stderr, "Error: NULL model pointer\n");
     exit(1);
   }
-  int total_cols =
-      model->num_vars + model->slacks_surplus_count + model->artificials_count;
+  int total_cols = model->num_vars + model->slacks_surplus_count + model->artificials_count;
 
   size_t memory_needed =
       (size_t)model->num_constraints * total_cols * sizeof(double);

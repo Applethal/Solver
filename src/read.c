@@ -287,7 +287,9 @@ if (token) {
       if (!token) { fprintf(stderr, "Error: Missing upper bound for var %d\n", var_idx + 1); return NULL; }
       char *trimmed = token + strspn(token, " \t");
       model->coeffs[var_idx].ub = (strncmp(trimmed, "inf", 3) == 0) ? DBL_MAX : atof(token);
+      model->coeffs[var_idx].status = 1;
     }
+      
   }
 
   model->artificials_vector = NULL;
