@@ -18,12 +18,12 @@ typedef enum {
   BINARY = 6
 } VariableType;
 
-// typedef enum { 
-//   LOWER, 
-//   UPPER, 
-//   BASIC 
-// } VarStatus;
-//
+typedef enum { 
+  LOWER, 
+  UPPER, 
+  BASIS
+} VarStatus;
+
 
 typedef struct {
   double value;
@@ -31,7 +31,7 @@ typedef struct {
   double lb; 
   double ub;
   double originallb;
-  char status; // -1 for variables hitting the upper bound, 1 lower
+  VarStatus status; // -1 for variables hitting the upper bound, 1 lower
 
                       
 } Variable;
@@ -146,9 +146,7 @@ void SolveBounded(Model* model);
 void BoundedSimplex(Model* model);
 void TransformBoundedModel(Model* model); // Bounded variable simplex will have a different procedure
 void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector);
-
-
-
+void Update_BasisInverse(double **B_inv, double *Pivot, int pivot_row, int n); 
 
 
 // Code I needed to implement Two-Phase solving as I will need it for BnB

@@ -253,7 +253,7 @@ void InvertMatrix(double **matrix, size_t n) {
       printf("ERROR: Singular matrix - basis is not invertible!\n");
       free(aug);
       free(block);
-      exit(1);
+      exit(1); //TODO: Free memory blocks once this logic hits
     }
 
     double inv_pivot = 1.0 / pivot;
@@ -627,6 +627,20 @@ Model *deep_copy_model(const Model *model) {
   }
 
   return model_copy;
+}
+void Update_BasisInverse(double **B_inv, double *Pivot, int pivot_row, int n) {
+    // Scale the pivot row
+    double pivot_elem = Pivot[pivot_row];
+    for (int j = 0; j < n; j++)
+        B_inv[pivot_row][j] /= pivot_elem;
+
+    // Update all other rows: old_row -= (Pivot[i] / pivot_elem) * pivot_row
+    for (int i = 0; i < n; i++) {
+        if (i == pivot_row) continue;
+        double factor = Pivot[i];
+        for (int j = 0; j < n; j++)
+            B_inv[i][j] -= factor * B_inv[pivot_row][j];
+    }
 }
 
 

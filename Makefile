@@ -4,7 +4,7 @@ SRC_DIR		= src
 BUILD_DIR	= build
 SRC			= $(wildcard $(SRC_DIR)/*.c)
 OBJ			= $(SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-TARGET = $(BUILD_DIR)/rsa
+TARGET = $(BUILD_DIR)/Solver
 
 $(TARGET): $(OBJ)
 	$(GCC) -g -fsanitize=address,undefined -Iinclude -o $@ $^ -lm -Wall
