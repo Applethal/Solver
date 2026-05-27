@@ -102,6 +102,7 @@ if (token) {
       model->coeffs[idx].ub = DBL_MAX; 
       model->integer_vars_idx[model->integer_vars_count] = idx;
       model->integer_vars_count += 1;
+      model->coeffs[idx].original_value = model->coeffs[idx].value;
     } else if (b_marker != NULL) {
       *b_marker = '\0';
       model->coeffs[idx].value = atof(token) * model->objective;
@@ -110,12 +111,15 @@ if (token) {
       model->coeffs[idx].lb = 0;
       model->integer_vars_idx[model->integer_vars_count] = idx;
       model->integer_vars_count += 1;
-      
+      model->coeffs[idx].original_value = model->coeffs[idx].value;
+
     } else {
       model->coeffs[idx].value = atof(token) * model->objective;
       model->coeffs[idx].type = STANDARD;
       model->coeffs[idx].lb = 0;
       model->coeffs[idx].ub = DBL_MAX;
+      model->coeffs[idx].original_value = model->coeffs[idx].value;
+
     }
 
     if (model->bigM < model->coeffs[idx].value) {
@@ -287,7 +291,13 @@ if (token) {
       if (!token) { fprintf(stderr, "Error: Missing upper bound for var %d\n", var_idx + 1); return NULL; }
       char *trimmed = token + strspn(token, " \t");
       model->coeffs[var_idx].ub = (strncmp(trimmed, "inf", 3) == 0) ? DBL_MAX : atof(token);
-      model->coeffs[var_idx].status = 1;
+      if (model->coeffs[var_idx].ub < model->coeffs[var_idx].lb) {
+          fprintf(stderr, "Error: Upper bound %.4g is less than lower bound %.4g for var %d\n",
+          model->coeffs[var_idx].ub, model->coeffs[var_idx].lb, var_idx + 1);
+          return NULL;
+          }
+      
+      model->coeffs[var_idx].status = LOWER;
     }
       
   }

@@ -31,7 +31,8 @@ typedef struct {
   double lb; 
   double ub;
   double originallb;
-  VarStatus status; // -1 for variables hitting the upper bound, 1 lower
+  VarStatus status;
+  double original_value; // During the bounded simplex, it might be that I will flip the signs of coefficients. I have no efficient way to track the original state for now 
 
                       
 } Variable;

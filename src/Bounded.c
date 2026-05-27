@@ -9,54 +9,56 @@
 // printing part was vibecoded
 void Get_ObjectiveFunctionBounded(Model *model, double *original_RHS) {
     size_t n = model->num_constraints;
- 
-    printf("\n%-12s %-10s %-16s %-20s\n", "Variable", "Value", "Value bounds", "Status");
-    printf("%-12s %-10s %-16s %-20s\n",   "--------", "-----", "------------", "------");
- 
+
+    printf("\n%-12s %-10s %-10s %-16s %-20s\n", "Variable", "Obj Coef", "Value", "Value bounds", "Status");
+    printf("%-12s %-10s %-10s %-16s %-20s\n",   "--------", "--------", "-----", "------------", "------");
+
     // basic variables
     for (int i = 0; i < (int)n; i++) {
         int basic_var = model->basics_vector[i];
         if (model->coeffs[basic_var].type != STANDARD) continue;
- 
+
         double c_j = (model->coeffs[basic_var].status == UPPER)
                      ? model->coeffs[basic_var].value * -1
                      : model->coeffs[basic_var].value;
         double x_j = (model->coeffs[basic_var].status == UPPER)
                      ? model->coeffs[basic_var].ub - original_RHS[i]
                      : original_RHS[i];
- 
+
         model->objective_function += (c_j * x_j) * model->objective;
- 
+
         double lb = model->coeffs[basic_var].originallb;
         double ub = model->coeffs[basic_var].ub + lb;
         x_j += lb;
- 
+
         char bounds_str[32];
         snprintf(bounds_str, sizeof(bounds_str), "[%.4g, %.4g]", lb, ub);
-        printf("x%-11i %-10.4f %-16s %-20s\n", basic_var+1, x_j, bounds_str, "Basic");
+        printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", basic_var+1, model->coeffs[basic_var].original_value * model->objective, x_j, bounds_str, "Basic");
     }
- 
+
     // non-basic variables
     for (int i = 0; i < model->non_basics_count; i++) {
         int non_basic = model->non_basics[i];
         if (model->coeffs[non_basic].type != STANDARD) continue;
- 
+
         double lb = model->coeffs[non_basic].originallb;
         double ub = model->coeffs[non_basic].ub + lb;
- 
+        double c_j = (model->coeffs[non_basic].status == UPPER)
+                     ? model->coeffs[non_basic].value * -1
+                     : model->coeffs[non_basic].value;
+
         char bounds_str[32];
         snprintf(bounds_str, sizeof(bounds_str), "[%.4g, %.4g]", lb, ub);
- 
+
         if (model->coeffs[non_basic].status == UPPER) {
-            printf("x%-11i %-10.4f %-16s %-20s\n", non_basic+1, ub, bounds_str, "At upper bound");
+            printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, model->coeffs[non_basic].original_value * model->objective, ub, bounds_str, "At upper bound");
         } else {
-            printf("x%-11i %-10.4f %-16s %-20s\n", non_basic+1, lb, bounds_str, "At lower bound");
+            printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, model->coeffs[non_basic].original_value * model->objective, lb, bounds_str, "At lower bound");
         }
     }
- 
+
     printf("\nObjective function: %f\n", model->objective_function);
 }
- 
 
 
 void BoundedSimplex(Model *model) {
