@@ -53,6 +53,7 @@ typedef struct {
 #define MAX_VARS 2000
 #define MAX_CONSTRAINTS 2000
 #define MAX_MEM_BYTES 1024
+#define REINVERSION_FREQ 50
 
 
 // typedef enum {

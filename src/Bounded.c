@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define REINVERSION_FREQ 50
 #define MIN3IDX(a,b,c) (((a)<=(b)&&(a)<=(c)) ? 1 : (((b)<(a)&&(b)<=(c)) ? 2 : 3))
 
 // printing part was vibecoded
@@ -16,6 +15,11 @@ void Get_ObjectiveFunctionBounded(Model *model, double *original_RHS) {
     // basic variables
     for (int i = 0; i < (int)n; i++) {
         int basic_var = model->basics_vector[i];
+        if (original_RHS[i] < -1e-9 || original_RHS[i] > model->coeffs[basic_var].ub + 1e-9) {
+      printf("Model Infeasible. Artificial basic variable has a positive RHS value. Terminating!\n");  
+        model->objective_function = 0;
+        return;
+} 
         if (model->coeffs[basic_var].type != STANDARD) continue;
 
         double c_j = (model->coeffs[basic_var].status == UPPER)
@@ -57,7 +61,8 @@ void Get_ObjectiveFunctionBounded(Model *model, double *original_RHS) {
         }
     }
 
-    printf("\nObjective function: %f\n", model->objective_function);
+printf("Optimal solution found! \n");
+
 }
 
 
@@ -105,7 +110,6 @@ void BoundedSimplex(Model *model) {
       }
     }
     if (best_reduced_cost <= 1e-9) {
-      printf("Optimal solution found! \n");
       Get_ObjectiveFunctionBounded(model, original_RHS);
       termination++;
       
@@ -147,7 +151,7 @@ void BoundedSimplex(Model *model) {
           }
       }
 }
-    if (exiting_var_idx == -1 && exiting_var_idx_neg == -1) { 
+    if (exiting_var_idx == -1 && exiting_var_idx_neg == -1 && model->coeffs[entering_var].ub == DBL_MAX) { 
       printf("LP is unbounded! Terminating!\n");
       free(Pivot);
       

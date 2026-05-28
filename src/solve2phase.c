@@ -1,8 +1,10 @@
 
 #include "core.h"
+#include <stdio.h>
 
 
 void Solve(Model *model) {
+  printf("Warning, Debug mode is disabled. I have not implemented it here yet.");
   TransformModel(model);
   ValidateModelPointers(model);
   if (RunPhase1(model))
@@ -72,17 +74,24 @@ int RunPhase1(Model *model) {
 }
 
 int SimplexLoop(Model *model, double *solution_out) {
+  
+  
+
+
   size_t n = model->num_constraints;
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
+  double **B_inv = Get_BasisInverse(model, model->solver_iterations);
 
   while (1) {
     if (model->solver_iterations == MAX_ITERATIONS) {
       printf("Max iterations reached. Terminating!\n");
+      for (size_t i = 0; i < n; i++) free(B_inv[i]);
+      free(B_inv);
       return -2;
     }
-    printf("Beginning solver iteration %i \n", model->solver_iterations);
 
-    double **B_inv = Get_BasisInverse(model, model->solver_iterations);
+    printf("Beginning solver iteration %i\n", model->solver_iterations);
+
     double original_RHS[n];
     for (size_t i = 0; i < n; i++)
       original_RHS[i] = model->rhs_vector[i];
@@ -90,15 +99,13 @@ int SimplexLoop(Model *model, double *solution_out) {
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
     UpdateRhs(model, original_RHS, B_inv);
 
-    int entering_var_idx = 0;
-    int entering_var = 0;
+    int entering_var_idx = 0, entering_var = 0;
     double best_reduced_cost = -DBL_MAX;
     int feasibility_check = 0;
 
     for (size_t i = 0; i < model->non_basics_count; i++) {
       int non_basic_idx = model->non_basics[i];
-      double rc =
-          Get_ReducedPrice(model, B_inv, non_basic_idx, Simplex_multiplier);
+      double rc = Get_ReducedPrice(model, B_inv, non_basic_idx, Simplex_multiplier);
       if (rc > best_reduced_cost) {
         best_reduced_cost = rc;
         entering_var_idx = i;
@@ -108,26 +115,23 @@ int SimplexLoop(Model *model, double *solution_out) {
         feasibility_check++;
     }
 
-    // Optimal — all reduced costs <= 0
     if (feasibility_check == model->non_basics_count) {
       if (solution_out)
         for (size_t i = 0; i < n; i++)
           solution_out[i] = original_RHS[i];
-      for (size_t i = 0; i < n; i++)
-        free(B_inv[i]);
+      for (size_t i = 0; i < n; i++) free(B_inv[i]);
       free(B_inv);
       free(Simplex_multiplier);
       return 1;
     }
 
     double *Pivot = Get_pivot_column(B_inv, model, entering_var);
-    int exiting_var_idx = -1;
-    int exiting_var = -1;
+
+    int exiting_var_idx = -1, exiting_var = -1;
     double best_ratio = DBL_MAX;
 
     for (size_t i = 0; i < n; i++) {
-      if (Pivot[i] <= 1e-6)
-        continue;
+      if (Pivot[i] <= 1e-6) continue;
       double ratio = original_RHS[i] / Pivot[i];
       if (ratio < best_ratio && ratio >= 0) {
         best_ratio = ratio;
@@ -138,22 +142,25 @@ int SimplexLoop(Model *model, double *solution_out) {
 
     if (exiting_var_idx == -1) {
       free(Pivot);
-      for (size_t i = 0; i < n; i++)
-        free(B_inv[i]);
-      free(B_inv);
       free(Simplex_multiplier);
-      return -1; // unbounded
+      for (size_t i = 0; i < n; i++) free(B_inv[i]);
+      free(B_inv);
+      return -1;
     }
 
     model->non_basics[entering_var_idx] = exiting_var;
     model->basics_vector[exiting_var_idx] = entering_var;
-    model->solver_iterations++;
 
+    Update_BasisInverse(B_inv, Pivot, exiting_var_idx, n);
+
+    if (model->solver_iterations % REINVERSION_FREQ == 0) {
+      for (size_t i = 0; i < n; i++) free(B_inv[i]);
+      free(B_inv);
+      B_inv = Get_BasisInverse(model, model->solver_iterations);
+    }
+
+    model->solver_iterations++;
     free(Pivot);
-    for (size_t i = 0; i < n; i++)
-      free(B_inv[i]);
-    free(B_inv);
     free(Simplex_multiplier);
   }
 }
-
