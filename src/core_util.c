@@ -11,13 +11,12 @@
 #include "Constraint.h"
 
 
-
 void PrintHelp() {
   printf("NAME\n");
   printf("     RSA - Linear programming solver using the Revised Simplex "
          "Algorithm\n\n");
   printf("SYNOPSIS\n");
-  printf("     ./RSA csv file path [-Debug]\n\n");
+  printf("     ./Solver csv file path [-Debug]\n\n");
   printf("DESCRIPTION\n");
   printf(
       "     RSA is a linear programming solver that implements the Revised\n");
@@ -31,7 +30,7 @@ void PrintHelp() {
   printf("     automatically handles equality and inequality constraints by "
          "adding slack\n");
   printf("     and artificial variables as needed.\n\n");
-  printf("     Visit the Github repo https://github.com/Applethal/RSA to see "
+  printf("     Visit the Github repo https://github.com/Applethal/Solver to see "
          "an example of how the CSV data input should look like.\n");
   printf("OPTIONS\n");
   printf("     csv file path\n");
@@ -45,7 +44,7 @@ void PrintHelp() {
          "program\n");
   printf("             displays detailed information about the model and shows "
          "iterative\n");
-  printf("             steps during the solving process. \n");
+  printf("             steps during the solving process (bigM mode only). \n");
   printf("EXIT STATUS\n");
   printf("     0       Optimal solution obtained.\n");
   printf("     1       File opening error (file does not exist or cannot be "
@@ -99,8 +98,8 @@ void MainLoop(int argc, char *argv[]) {
     
   switch (solver_flags & ~SOLVER_DEBUG) {
   case SOLVER_INTEGER:
-    printf("Integer programming detected\n");
-    IntegerSolvingLoop(model);
+    printf("Integer programming detected, still not implemented\n");
+    //IntegerSolvingLoop(model);
     break;
   case SOLVER_BOUNDED:
     printf("Bounded simplex detected\n");
@@ -138,16 +137,16 @@ void PrintConstraints_matrix_original(Model *model) {
   for (int i = 0; i < model->num_constraints; i++) {
     printf("Constraint %d: ", i + 1);
     for (int j = 0; j < model->num_vars; j++) {
-      printf("%5.1f ", model->lhs_matrix[i][j]);
+      printf("%5.1f ", model->constraints[i].lhs_vector[j]);
     }
-    printf("| RHS: %5.1f", model->rhs_vector[i]);
+    printf("| RHS: %5.1f", model->constraints[i].rhs);
     printf("\n");
   }
   printf("\n");
 
   printf("Constraint symbols in the original problem:\n");
   for (size_t i = 0; i < model->num_constraints; i++) {
-    printf(" %c ", model->constraints_symbols[i]);
+    printf(" %c ", model->constraints[i].constraints_symbol);
   }
   printf("\n");
 }
@@ -159,16 +158,16 @@ void PrintConstraints_matrix(Model *model) {
   for (int i = 0; i < model->num_constraints; i++) {
     printf("Constraint %d: ", i + 1);
     for (int j = 0; j < total_cols; j++) {
-      printf("%5.1f ", model->lhs_matrix[i][j]);
+      printf("%5.1f ", model->constraints[i].lhs_vector[j]);
     }
-    printf("| RHS: %5.1f", model->rhs_vector[i]);
+    printf("| RHS: %5.1f", model->constraints[i].rhs);
     printf("\n");
   }
   printf("\n");
 
   printf("Constraint symbols in the original problem:\n");
   for (size_t i = 0; i < model->num_constraints; i++) {
-    printf(" %c ", model->constraints_symbols[i]);
+    printf(" %c ", model->constraints[i].constraints_symbol);
   }
   printf("\n");
 }
@@ -193,7 +192,7 @@ double **Get_BasisInverse(Model *model, int iteration) {
       B[i] = (double *)malloc(n * sizeof(double));
       for (size_t j = 0; j < n; j++) {
         int basis_col = model->basics_vector[j];
-        B[i][j] = model->lhs_matrix[i][basis_col];
+        B[i][j] = model->constraints[i].lhs_vector[basis_col];
       }
     }
 
@@ -213,7 +212,7 @@ double **Get_BasisInverse(Model *model, int iteration) {
 
   return B_inv;
 }
-
+//I don't need this anymore, it stays for legacy purposes
 void InvertMatrix(double **matrix, size_t n) {
   const double EPS = 1e-12;
 
@@ -289,7 +288,7 @@ double Get_ReducedPrice(Model *model, double **B_inv, int var_col,
   double dot_product = 0.0;
 
   for (int i = 0; i < n; i++) {
-    dot_product += multiplier_vector[i] * model->lhs_matrix[i][var_col];
+    dot_product += multiplier_vector[i] * model->constraints[i].lhs_vector[var_col];
   }
 
   double reduced_cost = model->coeffs[var_col].value - dot_product;
@@ -319,7 +318,8 @@ double *Get_pivot_column(double **B_inv, Model *model, int best_cost_idx) {
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
-      sum += B_inv[i][j] * model->lhs_matrix[j][best_cost_idx];
+      sum += B_inv[i][j] * model->constraints[j].lhs_vector[best_cost_idx];
+
     }
     Pivot[i] = sum;
   }
@@ -402,39 +402,23 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector) {
       // originally
       double original_coeff = model->coeffs[basic_idx].value;
 
-      // TODO: Instead of having an IF statement, maybe make it so that MAX
-      // problems are set to 1 and MIN problems are set to -1 in
-      // model->objective Sadly, this will prevent any opportunity for me to use
-      // boolean memory size, I can somehow use a makeshift boolean by using a
-      // single char value of 1 and -1 since these are the only expected values
-      // of model->objective, so I should not be afraid in this area. if
-      // (model->objective == 0) {
-      //   original_coeff *= -1;
-      // }
-      //
+      
       printf("Value of variable x%i is %f with coefficient %f\n", basic_idx,
              rhs_vector[i], original_coeff * model->objective);
     }
   }
 
-  // // Convert objective function back for minimization
-  // if (model->objective == 0) {
-  //   model->objective_function *= -1;
-  // }
 
   printf("Optimal solution found! Objective value: %f\n",
          model->objective_function);
 }
 
 void FreeModel(Model *model) {
-
   for (int i = 0; i < model->num_constraints; i++)
-    free(model->lhs_matrix[i]);
-  free(model->lhs_matrix);
+    free(model->constraints[i].lhs_vector);
+  free(model->constraints);
   free(model->coeffs);
-  free(model->rhs_vector);
   free(model->basics_vector);
-  free(model->constraints_symbols);
   free(model->artificials_vector);
   free(model->non_basics);
   free(model->integer_vars_idx);
@@ -448,190 +432,65 @@ void ValidateModelPointers(Model *model) {
     fprintf(stderr, "Fatal Error: Model pointer is NULL.\n");
     exit(1);
   }
-
-  if (!model->lhs_matrix) {
-    fprintf(stderr, "Fatal Error: model->lhs_matrix is NULL.\n");
+  if (!model->constraints) {
+    fprintf(stderr, "Fatal Error: model->constraints is NULL.\n");
     exit(1);
   }
-
   if (!model->coeffs) {
     fprintf(stderr, "Fatal Error: model->coeffs is NULL.\n");
     exit(1);
   }
-
-  if (!model->rhs_vector) {
-    fprintf(stderr, "Fatal Error: model->rhs_vector is NULL.\n");
-    exit(1);
-  }
-
   if (!model->basics_vector) {
     fprintf(stderr, "Fatal Error: model->basics_vector is NULL.\n");
     exit(1);
   }
-
-  if (!model->constraints_symbols) {
-    fprintf(stderr, "Fatal Error: model->constraints_symbols is NULL.\n");
-    exit(1);
-  }
-
   if (!model->artificials_vector) {
     fprintf(stderr, "Fatal Error: model->artificials_vector is NULL.\n");
     exit(1);
   }
-
   if (!model->non_basics) {
     fprintf(stderr, "Fatal Error: model->non_basics is NULL.\n");
     exit(1);
   }
-
   for (int i = 0; i < model->num_constraints; i++) {
-    if (!model->lhs_matrix[i]) {
-      fprintf(stderr, "Fatal Error: model->lhs_matrix[%d] is NULL.\n", i);
+    if (!model->constraints[i].lhs_vector) {
+      fprintf(stderr, "Fatal Error: model->constraints[%d].lhs_vector is NULL.\n", i);
       exit(1);
     }
   }
 }
 
 size_t ModelMemSize(Model *model) {
-
   size_t size = 0;
-  size += sizeof(char); // objective mode
+  size += sizeof(char);                            // objective mode
   size += sizeof(int) * model->num_constraints * 2;
   size += sizeof(int) * model->num_vars;
-  // variable struct
-  size += sizeof(Variable) * model->num_vars; // struct
-  size += sizeof(int) * model->num_vars;      // type
-  size += sizeof(int) * model->num_vars;      // constraint index
-  size += sizeof(double) * model->num_vars;   // value
-  int total_cols =
-      model->num_vars + model->slacks_surplus_count + model->artificials_count;
+  size += sizeof(Variable) * model->num_vars;      // original coeffs struct
+  size += sizeof(int) * model->num_vars;           // type
+  size += sizeof(int) * model->num_vars;           // constraint index
+  size += sizeof(double) * model->num_vars;        // value
+
+  int total_cols = model->num_vars + model->slacks_surplus_count + model->artificials_count;
+
+  // Constraint array: struct overhead + each lhs_vector
+  size += sizeof(Constraint) * model->num_constraints;
   for (int i = 0; i < model->num_constraints; i++)
     size += sizeof(double) * total_cols;
-  size += sizeof(Variable) * total_cols;           // Variables
-  size += sizeof(double) * model->num_constraints; // RHS vector
-  size += sizeof(int) * model->num_constraints;    // Basics vector
-  size += sizeof(double);                          // Objective function
-  size += sizeof(char) * model->num_constraints;   // Constraints symbols
-  size += sizeof(int) * 2; // Inequalities and equalities count
-  size += sizeof(int) * model->artificials_count;  // Artificials vector
-  size += sizeof(int);                             // Solver iterations
-  size += sizeof(int) * model->non_basics_count;   // Non-basics
-  size += sizeof(int) * model->integer_vars_count; // Integer variable indices
-  size += sizeof(double);                          // BigM
-  size += sizeof(double);                          // Objective Constant
 
-  // printf("Matrix inversion memory usage per iteration: %zu bytes (%.2f
-  // KB)\n",
-  //        inversion_memory, inversion_memory / 1024.0);
-  // printf("Simplex multiplier vector size per iteration: %zu bytes (%.2f
-  // KB)\n", constraints_vector, constraints_vector / 1024.0); printf("Memory
-  // usage when updating the RHS vector per iteration: %zu bytes (%.2f KB)\n",
-  // constraints_vector, constraints_vector / 1024.0); printf("Total dynamic
-  // memory usage in each iteration: %zu bytes (%.2f KB)\n",
-  // constraints_vector
-  // * 2 + inversion_memory + size, (constraints_vector * 2 + inversion_memory
-  // + size) / 1024.0); printf("Total iterations: %d\n",
-  // model->solver_iterations);
-
+  size += sizeof(Variable) * total_cols;           // expanded coeffs
+  size += sizeof(int) * model->num_constraints;    // basics vector
+  size += sizeof(double);                          // objective function
+  size += sizeof(int) * 2;                         // inequalities and equalities count
+  size += sizeof(int) * model->artificials_count;  // artificials vector
+  size += sizeof(int);                             // solver iterations
+  size += sizeof(int) * model->non_basics_count;   // non-basics
+  size += sizeof(int) * model->integer_vars_count; // integer variable indices
+  size += sizeof(double);                          // bigM
+  size += sizeof(double);                          // objective constant
   return size;
 }
 
-// This was vibe coded as I was lazy to write my own deep copying method
-Model *deep_copy_model(const Model *model) {
-  if (!model)
-    return NULL;
 
-  Model *model_copy = calloc(1, sizeof(Model));
-  if (!model_copy)
-    return NULL;
-
-  size_t total_vars =
-      model->num_vars + model->slacks_surplus_count + model->artificials_count;
-
-  model_copy->objective = model->objective;
-  model_copy->num_constraints = model->num_constraints;
-  model_copy->num_vars = model->num_vars;
-  model_copy->objective_function = model->objective_function;
-  model_copy->slacks_surplus_count = model->slacks_surplus_count;
-  model_copy->artificials_count = model->artificials_count;
-  model_copy->solver_iterations = model->solver_iterations;
-  model_copy->non_basics_count = model->non_basics_count;
-  model_copy->integer_vars_count = model->integer_vars_count;
-
-  if (model->integer_vars_idx) {
-    model_copy->integer_vars_idx =
-        calloc(model->integer_vars_count, sizeof(int));
-    if (!model_copy->integer_vars_idx)
-      return FreeModel(model_copy), NULL;
-    memcpy(model_copy->integer_vars_idx, model->integer_vars_idx,
-           model_copy->integer_vars_count * sizeof(int));
-  }
-
-  if (model->lhs_matrix) {
-    model_copy->lhs_matrix = calloc(model->num_constraints, sizeof(double *));
-    if (!model_copy->lhs_matrix)
-      return FreeModel(model_copy), NULL;
-
-    for (size_t i = 0; i < model->num_constraints; i++) {
-      model_copy->lhs_matrix[i] = calloc(total_vars, sizeof(double));
-      if (!model_copy->lhs_matrix[i])
-        return FreeModel(model_copy), NULL;
-      memcpy(model_copy->lhs_matrix[i], model->lhs_matrix[i],
-             total_vars * sizeof(double));
-    }
-  }
-
-  if (model->coeffs) {
-    model_copy->coeffs = calloc(total_vars, sizeof(Variable));
-    if (!model_copy->coeffs)
-      return FreeModel(model_copy), NULL;
-    memcpy(model_copy->coeffs, model->coeffs, total_vars * sizeof(Variable));
-  }
-
-  if (model->rhs_vector) {
-    model_copy->rhs_vector = calloc(model->num_constraints, sizeof(double));
-    if (!model_copy->rhs_vector)
-      return FreeModel(model_copy), NULL;
-    memcpy(model_copy->rhs_vector, model->rhs_vector,
-           model->num_constraints * sizeof(double));
-  }
-
-  if (model->basics_vector) {
-    model_copy->basics_vector = calloc(model->num_constraints, sizeof(int));
-    if (!model_copy->basics_vector)
-      return FreeModel(model_copy), NULL;
-    memcpy(model_copy->basics_vector, model->basics_vector,
-           model->num_constraints * sizeof(int));
-  }
-
-  if (model->constraints_symbols) {
-    model_copy->constraints_symbols =
-        calloc(model->num_constraints, sizeof(char));
-    if (!model_copy->constraints_symbols)
-      return FreeModel(model_copy), NULL;
-    memcpy(model_copy->constraints_symbols, model->constraints_symbols,
-           model->num_constraints * sizeof(char));
-  }
-
-  if (model->artificials_vector && model->artificials_count > 0) {
-    model_copy->artificials_vector =
-        calloc(model->artificials_count, sizeof(int));
-    if (!model_copy->artificials_vector)
-      return FreeModel(model_copy), NULL;
-    memcpy(model_copy->artificials_vector, model->artificials_vector,
-           model->artificials_count * sizeof(int));
-  }
-
-  if (model->non_basics && model->non_basics_count > 0) {
-    model_copy->non_basics = calloc(model->non_basics_count, sizeof(int));
-    if (!model_copy->non_basics)
-      return FreeModel(model_copy), NULL;
-    memcpy(model_copy->non_basics, model->non_basics,
-           model->non_basics_count * sizeof(int));
-  }
-
-  return model_copy;
-}
 void Update_BasisInverse(double **B_inv, double *Pivot, int pivot_row, int n) {
     // Scale the pivot row
     double pivot_elem = Pivot[pivot_row];
@@ -648,32 +507,4 @@ void Update_BasisInverse(double **B_inv, double *Pivot, int pivot_row, int n) {
 }
 
 
-void FlipConstraint(Model *model, int idx){
-
-    printf("Constraint %i has a negative RHS, consider reformulating please to save time \n", idx);
-  
-    model->rhs_vector[idx] *= -1; 
-
-    for (size_t i = 0; i < model->num_vars; i++) {
-      
-        model->lhs_matrix[idx][i] *= -1;
-    }
-
-    if (model->constraints_symbols[idx] == 'G') {
-        
-        model->constraints_symbols[idx] = 'L';
-      
-    } else if (model->constraints_symbols[idx] == 'L') {
-
-      model->constraints_symbols[idx] = 'G';
-
-
-        
-    }
-    
-
-
-
-
-}
 

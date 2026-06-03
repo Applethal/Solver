@@ -63,7 +63,7 @@ int RunPhase1(Model *model) {
     int art_col = model->artificials_vector[i];
     model->coeffs[art_col].value = 0.0;
     for (int j = 0; j < model->num_constraints; j++)
-      model->lhs_matrix[j][art_col] = 0.0;
+      model->constraints[j].lhs_vector[art_col] = 0.0;
   }
 
   if (!feasible) {
@@ -95,7 +95,7 @@ int SimplexLoop(Model *model, double *solution_out) {
 
     double original_RHS[n];
     for (size_t i = 0; i < n; i++)
-      original_RHS[i] = model->rhs_vector[i];
+      original_RHS[i] = model->constraints[i].rhs;
 
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
     UpdateRhs(model, original_RHS, B_inv);

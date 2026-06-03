@@ -39,7 +39,8 @@ void RevisedSimplex(Model *model) {
 
     double original_RHS[n];
     for (size_t i = 0; i < n; i++) {
-      original_RHS[i] = model->rhs_vector[i];
+      original_RHS[i] = model->constraints[i].rhs;
+
     }
 
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
@@ -184,7 +185,7 @@ void RevisedSimplex_Debug(Model *model) {
 
     double original_RHS[n];
     for (size_t i = 0; i < n; i++) {
-      original_RHS[i] = model->rhs_vector[i];
+      original_RHS[i] = model->constraints[i].rhs;
     }
 
     printf("Getting the simplex multiplier P vector:\n");
@@ -204,7 +205,7 @@ void RevisedSimplex_Debug(Model *model) {
 
     printf("Updating the Right hand side vector\n");
     for (size_t i = 0; i < n; i++) {
-      printf(" %f ", model->rhs_vector[i]);
+      printf(" %f ", model->constraints[i].rhs);
     }
     printf("\n");
 

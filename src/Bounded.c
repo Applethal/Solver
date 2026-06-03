@@ -89,7 +89,8 @@ void BoundedSimplex(Model *model) {
     
     double original_RHS[n];
     for (size_t i = 0; i < n; i++) {
-      original_RHS[i] = model->rhs_vector[i];
+      original_RHS[i] = model->constraints[i].rhs;
+
     }
 
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
@@ -175,8 +176,8 @@ void BoundedSimplex(Model *model) {
   case 2:
     Update_BasisInverse(B_inv, Pivot, exiting_var_idx_neg, n);
     for (size_t i = 0; i < n; i++) {
-        model->rhs_vector[i] -= model->lhs_matrix[i][exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
-        model->lhs_matrix[i][exiting_var_neg] *= -1;
+        model->constraints[i].rhs -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
+        model->constraints[i].lhs_vector[exiting_var_neg] *= -1;
     }
     model->objective_function += (model->coeffs[exiting_var_neg].ub * model->coeffs[exiting_var_neg].value) * model->objective; 
     model->coeffs[exiting_var_neg].value *= -1;
@@ -190,8 +191,9 @@ void BoundedSimplex(Model *model) {
   case 3:
 
   for (size_t i = 0; i < n ; i++) {
-      model->rhs_vector[i] -= model->lhs_matrix[i][entering_var] * model->coeffs[entering_var].ub;
-      model->lhs_matrix[i][entering_var] *= -1; 
+      model->constraints[i].rhs -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
+      model->constraints[i].lhs_vector[entering_var] *= -1; 
+
         
   }
   model->coeffs[entering_var].status = UPPER;
@@ -234,18 +236,15 @@ void TransformBoundedModel(Model *model) {
     exit(1);
   }
 
-// TODO: What if RHS becomes negative? For now it is ignored  
-
-   for (size_t j = 0; j < model->num_constraints; j++) {
+  // TODO: What if RHS becomes negative? For now it is ignored
+  for (size_t j = 0; j < model->num_constraints; j++) {
     for (size_t i = 0; i < model->num_vars; i++) {
-      model->rhs_vector[j] -= model->lhs_matrix[j][i] * model->coeffs[i].lb;
+      model->constraints[j].rhs -= model->constraints[j].lhs_vector[i] * model->coeffs[i].lb;
     }
   }
-  // Pushing LBs to 0, reduce the range of the UBs and add a constant to
-  // objective function to consider these changes
 
+  // Push LBs to 0, reduce UB range, add constant to objective function
   for (size_t i = 0; i < model->num_vars; i++) {
-
     model->objective_function += (model->coeffs[i].value * model->coeffs[i].lb) * model->objective;
     model->coeffs[i].ub -= model->coeffs[i].lb;
     model->coeffs[i].originallb = model->coeffs[i].lb;
@@ -254,104 +253,86 @@ void TransformBoundedModel(Model *model) {
 
   int total_cols = model->num_vars + model->slacks_surplus_count + model->artificials_count;
 
-  size_t memory_needed =
-      (size_t)model->num_constraints * total_cols * sizeof(double);
+  size_t memory_needed = (size_t)model->num_constraints * total_cols * sizeof(double);
   size_t max_memory = (size_t)MAX_MEM_BYTES * 1024 * 1024;
 
   if (memory_needed > max_memory) {
-    fprintf(stderr,
-            "Error: Model too large. Requires %zu MB, maximum is %d MB\n",
+    fprintf(stderr, "Error: Model too large. Requires %zu MB, maximum is %d MB\n",
             memory_needed / (1024 * 1024), MAX_MEM_BYTES);
     exit(1);
   }
 
-  double **old_lhs_matrix = model->lhs_matrix;
   Variable *old_coeffs = model->coeffs;
 
-  // Allocate new expanded lhs_matrix matrix
-  model->lhs_matrix =
-      (double **)malloc(model->num_constraints * sizeof(double *));
+  // Expand each constraint's lhs_vector to total_cols in-place
   for (int i = 0; i < model->num_constraints; i++) {
-    model->lhs_matrix[i] = (double *)calloc(total_cols, sizeof(double));
-
+    double *old_lhs = model->constraints[i].lhs_vector;
+    model->constraints[i].lhs_vector = (double *)calloc(total_cols, sizeof(double));
     for (int j = 0; j < model->num_vars; j++) {
-      model->lhs_matrix[i][j] = old_lhs_matrix[i][j];
+      model->constraints[i].lhs_vector[j] = old_lhs[j];
     }
+    free(old_lhs);
   }
 
-  // Allocate new expanded coefficients array
+  // Expand coefficients array
   model->coeffs = (Variable *)calloc(total_cols, sizeof(Variable));
-
-  // Copy original objective coefficients
   for (int i = 0; i < model->num_vars; i++) {
     model->coeffs[i] = old_coeffs[i];
   }
-
-  // Free old arrays
-  for (int i = 0; i < model->num_constraints; i++) {
-    free(old_lhs_matrix[i]);
-  }
-  free(old_lhs_matrix);
   free(old_coeffs);
 
   // Allocate tracking arrays
-  model->artificials_vector =
-      (int *)malloc(model->artificials_count * sizeof(int));
-  model->basics_vector = (int *)calloc(model->num_constraints, sizeof(int));
+  model->artificials_vector = (int *)malloc(model->artificials_count * sizeof(int));
+  model->basics_vector      = (int *)calloc(model->num_constraints, sizeof(int));
 
   // Add slack, surplus, and artificial variables
-  int slack_col = model->num_vars;
+  int slack_col      = model->num_vars;
   int artificial_col = model->num_vars + model->slacks_surplus_count;
-  int slack_idx = 0;
+  int slack_idx      = 0;
   int artificial_idx = 0;
 
   for (int i = 0; i < model->num_constraints; i++) {
-    if (model->constraints_symbols[i] == 'L') {
-      // Less-than: add slack variable
+    if (model->constraints[i].constraints_symbol == 'L') {
       int col = slack_col + slack_idx;
-      model->lhs_matrix[i][col] = 1.0;
-      model->basics_vector[i] = col;
-      model->coeffs[col].type = SLACK;
-      model->coeffs[col].value = 0.0;
-      model->coeffs[col].lb = 0;
-      // model->coeffs[col].ub = model->rhs_vector[i];
-      model->coeffs[col].ub = DBL_MAX;
-
+      model->constraints[i].lhs_vector[col] = 1.0;
+      model->basics_vector[i]   = col;
+      model->coeffs[col].type   = SLACK;
+      model->coeffs[col].value  = 0.0;
+      model->coeffs[col].lb     = 0;
+      model->coeffs[col].ub     = DBL_MAX;
       slack_idx++;
-    } else if (model->constraints_symbols[i] == 'G') {
-      // Greater-than: add surplus and artificial
+
+    } else if (model->constraints[i].constraints_symbol == 'G') {
       int surplus_col = slack_col + slack_idx;
-      int artif_col = artificial_col + artificial_idx;
+      int artif_col   = artificial_col + artificial_idx;
 
-      model->lhs_matrix[i][surplus_col] = -1.0;
-      model->lhs_matrix[i][artif_col] = 1.0;
+      model->constraints[i].lhs_vector[surplus_col] = -1.0;
+      model->constraints[i].lhs_vector[artif_col]   =  1.0;
 
-      model->coeffs[surplus_col].type = SLACK;
+      model->coeffs[surplus_col].type  = SLACK;
       model->coeffs[surplus_col].value = 0.0;
-      model->coeffs[surplus_col].lb = 0;
-      // model->coeffs[surplus_col].ub = model->rhs_vector[i];
-      model->coeffs[surplus_col].ub = DBL_MAX;
+      model->coeffs[surplus_col].lb    = 0;
+      model->coeffs[surplus_col].ub    = DBL_MAX;
 
-
-      model->coeffs[artif_col].type = ARTIFICIAL;
+      model->coeffs[artif_col].type  = ARTIFICIAL;
       model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);
-      model->coeffs[artif_col].lb = 0;
-      model->coeffs[artif_col].ub = DBL_MAX;
+      model->coeffs[artif_col].lb    = 0;
+      model->coeffs[artif_col].ub    = DBL_MAX;
 
       model->artificials_vector[artificial_idx] = artif_col;
       model->basics_vector[i] = artif_col;
 
       slack_idx++;
       artificial_idx++;
-    } else if (model->constraints_symbols[i] == 'E') {
-      // Equality: add artificial variable
-      int artif_col = artificial_col + artificial_idx;
-      model->lhs_matrix[i][artif_col] = 1.0;
 
-      model->coeffs[artif_col].type = ARTIFICIAL;
+    } else if (model->constraints[i].constraints_symbol == 'E') {
+      int artif_col = artificial_col + artificial_idx;
+      model->constraints[i].lhs_vector[artif_col] = 1.0;
+
+      model->coeffs[artif_col].type  = ARTIFICIAL;
       model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);
-      model->coeffs[artif_col].lb = 0;
-      model->coeffs[artif_col].ub = DBL_MAX;
+      model->coeffs[artif_col].lb    = 0;
+      model->coeffs[artif_col].ub    = DBL_MAX;
 
       model->artificials_vector[artificial_idx] = artif_col;
       model->basics_vector[i] = artif_col;
@@ -360,7 +341,7 @@ void TransformBoundedModel(Model *model) {
     }
   }
 
-  model->non_basics = (int *)malloc( (total_cols - model->num_constraints) * sizeof(int));
+  model->non_basics = (int *)malloc((total_cols - model->num_constraints) * sizeof(int));
   int non_basic_idx = 0;
   for (int col = 0; col < total_cols; col++) {
     bool is_basic = false;
@@ -375,6 +356,5 @@ void TransformBoundedModel(Model *model) {
       model->coeffs[col].status = LOWER;
     }
   }
-
   model->non_basics_count = non_basic_idx;
 }
