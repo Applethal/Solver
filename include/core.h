@@ -8,40 +8,15 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
+#include "Variable.h"
+#include "Constraint.h"
 
-typedef enum {
-  STANDARD = 1,
-  ARTIFICIAL = 2,
-  SLACK = 3, 
-  SURPLUS = 4,
-  INTEGER = 5,
-  BINARY = 6
-} VariableType;
-
-typedef enum { 
-  LOWER, 
-  UPPER, 
-  BASIS
-} VarStatus;
-
-
-typedef struct {
-  double value;
-  VariableType type;  
-  double lb; 
-  double ub;
-  double originallb;
-  VarStatus status;
-  double original_value; // During the bounded simplex, it might be that I will flip the signs of coefficients. I have no efficient way to track the original state for now 
-
-                      
-} Variable;
 
 
 // Bit flags just to help decide which solving mode to go for 
 #define SOLVER_INTEGER  (1 << 0)  
 #define SOLVER_BOUNDED  (1 << 1)  
-#define SOLVER_DEBUG    (1 << 2)  
+#define SOLVER_DEBUG    (1 << 2) // Debug support avaiable only for BigM Solver, I have no plans yet for implementing it for the two phase method 
 
 
 
@@ -53,7 +28,7 @@ typedef struct {
 #define MAX_VARS 2000
 #define MAX_CONSTRAINTS 2000
 #define MAX_MEM_BYTES 1024
-#define REINVERSION_FREQ 50
+#define REINVERSION_FREQ 50 // Initially used 25, 50 should do
 
 
 // typedef enum {
@@ -73,24 +48,24 @@ typedef struct {
 // } Subproblem;
 //
 
-typedef struct BnB{
+// typedef struct BnB{
+//
+//   double UpperBound; // UB for Minimization, LB for maximization 
+//   double LowerBound;
+//   int *best_feasible_basis;
+//
+//
+// } BnB;
+//
+// typedef struct Node{
+//
+//   double *Upperbounds;
+//   double *LowerBounds;
+// } Node;
+//
 
-  double UpperBound; // UB for Minimization, LB for maximization 
-  double LowerBound;
-  int *best_feasible_basis;
 
-
-} BnB;
-
-typedef struct Node{
-
-  double *Upperbounds;
-  double *LowerBounds;
-} Node;
-
-
-
-typedef struct
+typedef struct Model
 {
   char objective;           // MINIMIZE -1, MAXIMIZE 1
   size_t num_constraints;    // Number of constraints
@@ -121,7 +96,7 @@ void TransformModel(Model *model);
 void PrintConstraints_matrix(Model *model); // Prints matrix in canonical form 
 void PrintConstraints_matrix_original(Model *model); // Prints matrix prior to transformation
 double **Get_BasisInverse(Model *model, int iteration);
-void InvertMatrix(double **matrix, size_t n);
+void InvertMatrix(double **matrix, size_t n); // I no longer use this. I use rank 1 matrix inversion
 void RevisedSimplex(Model *model); 
 void RevisedSimplex_Debug(Model *model); 
 double Get_ReducedPrice(Model *model, double **B_inv, int var_col, double *multiplier_vector);
@@ -166,7 +141,7 @@ void ModifyConstraint_IntegerLB(Model * model, int index, double value);
 void ModifyConstraint_BinaryUB(Model * model, int index); // Binary variables already have known bounds of 1s and 0s
 void ModifyConstraint_BinaryLB(Model * model, int index);
 
-
+// vibecoded this because I am lazy to write my own copy method
 Model *deep_copy_model(const Model *model);
 
 

@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "Variable.h"
+#include "Constraint.h"
+
+
 
 void PrintHelp() {
   printf("NAME\n");
@@ -113,7 +117,7 @@ void MainLoop(int argc, char *argv[]) {
       printf("Starting solver, to enable iterative debugging add the flag '-Debug' "
          "as an argument after the file path.\n\n");
 
-      // Solve(model);
+      //Solve(model);
       Solve_BigM(model);
     }
     break;

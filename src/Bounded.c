@@ -2,6 +2,8 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "Variable.h"
+#include "Constraint.h"
 
 #define MIN3IDX(a,b,c) (((a)<=(b)&&(a)<=(c)) ? 1 : (((b)<(a)&&(b)<=(c)) ? 2 : 3))
 

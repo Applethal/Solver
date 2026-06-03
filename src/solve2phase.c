@@ -1,6 +1,7 @@
-
+#include "Variable.h"
 #include "core.h"
 #include <stdio.h>
+#include "Constraint.h"
 
 
 void Solve(Model *model) {

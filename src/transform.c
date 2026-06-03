@@ -1,4 +1,6 @@
 #include "core.h"
+#include "Variable.h"
+#include "Constraint.h"
 
 
 void TransformModel(Model *model) {

@@ -1,5 +1,7 @@
 #include "core.h"
 #include <float.h>
+#include "Variable.h"
+#include "Constraint.h"
 
 
 

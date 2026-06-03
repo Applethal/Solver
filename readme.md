@@ -24,7 +24,7 @@ TODO:
 
 10- Convert >= constraints to <= to compress models further and avoid having to add artificial variables.
 
-11- Replace Gauss' pivoting function with in-place algorithms for memory and time efficient solving.
+11- <del> Replace Gauss' pivoting function with in-place algorithms for memory and time efficient solving. </del>
 
 # How to contribute 
 
@@ -111,15 +111,15 @@ Which corresponds to:
 $$
 \begin{aligned}
 \text{Minimize } \quad 
-z \;=\;& 4x_1 + 6x_2 + 3x_3 + 5x_4 + 2x_5 \\[6pt]
+z \;=\;& 4x_1 + 6x_2 + 3x_3 + 5x_4 + 2x_5 \\
 \text{subject to} \quad 
-2x_1 + x_2 + x_3 + 3x_5 \;&\geq\; 18 \\[4pt]
-x_1 + 3x_2 + 2x_3 + x_4 \;&\leq\; 25 \\[4pt]
-2x_2 + x_3 + 4x_4 + x_5 \;&\geq\; 20 \\[4pt]
-3x_1 + x_2 + 2x_4 + 2x_5 \;&\leq\; 30 \\[4pt]
-x_1 + x_2 + x_3 + x_4 + x_5 \;&=\; 15 \\[8pt]
+2x_1 + x_2 + x_3 + 3x_5 \;&\geq\; 18 \\
+x_1 + 3x_2 + 2x_3 + x_4 \;&\leq\; 25 \\
+2x_2 + x_3 + 4x_4 + x_5 \;&\geq\; 20 \\
+3x_1 + x_2 + 2x_4 + 2x_5 \;&\leq\; 30 \\
+x_1 + x_2 + x_3 + x_4 + x_5 \;&=\; 15 \\
 0 \leq x_1 \leq 8, \qquad
-1 \leq x_2 \leq 7, \\[4pt]
+1 \leq x_2 \leq 7, \\
 0 \leq x_3 \leq 6, \qquad
 2 \leq x_4 \leq 9, \qquad
 1 \leq x_5 \leq 5
