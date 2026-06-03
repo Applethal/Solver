@@ -132,8 +132,8 @@ Model *ReadCsv(FILE *csvfile) {
   for (int i = 0; i < model->num_constraints; i++) {
     if (!fgets(line, sizeof(line), csvfile)) {
       fprintf(stderr,
-        "Error: Unexpected end of file at constraint %d. "
-        "This might indicate a missing constraint or wrong constraints count in the header\n", i);
+          "Error: Unexpected end of file at constraint %d. "
+          "This might indicate a missing constraint or wrong constraints count in the header\n", i);
       goto parse_error;
     }
 
@@ -142,11 +142,12 @@ Model *ReadCsv(FILE *csvfile) {
     while (token != NULL && col_idx < model->num_vars) {
       model->constraints[i].lhs_vector[col_idx++] = atof(token);
       token = strtok(NULL, ",");
+      model->constraints[i].lhs_sum += atof(token);
     }
 
     if (col_idx != model->num_vars) {
       fprintf(stderr, "Error: Constraint %d has %d coefficients, expected %zu variables\n",
-              i, col_idx, model->num_vars);
+          i, col_idx, model->num_vars);
       goto parse_error;
     }
     if (token == NULL) {
@@ -162,15 +163,15 @@ Model *ReadCsv(FILE *csvfile) {
     op[op_idx] = '\0';
 
     if (strcmp(op, "<=") == 0) {
-  model->constraints[i].constraints_symbol = 'L';
-  num_le++;
-} else if (strcmp(op, ">=") == 0) {
-  model->constraints[i].constraints_symbol = 'G';
-  num_ge++;
-} else if (strcmp(op, "=") == 0) {
-  model->constraints[i].constraints_symbol = 'E';
-  num_eq++;
-}   else {
+      model->constraints[i].constraints_symbol = 'L';
+      num_le++;
+    } else if (strcmp(op, ">=") == 0) {
+      model->constraints[i].constraints_symbol = 'G';
+      num_ge++;
+    } else if (strcmp(op, "=") == 0) {
+      model->constraints[i].constraints_symbol = 'E';
+      num_eq++;
+    }   else {
       fprintf(stderr, "Error: Invalid operator '%s' in constraint %d\n", op, i);
       goto parse_error;
     }
@@ -220,7 +221,7 @@ Model *ReadCsv(FILE *csvfile) {
 
       if (model->coeffs[var_idx].ub < model->coeffs[var_idx].lb) {
         fprintf(stderr, "Error: Upper bound %.4g is less than lower bound %.4g for var %d\n",
-                model->coeffs[var_idx].ub, model->coeffs[var_idx].lb, var_idx + 1);
+            model->coeffs[var_idx].ub, model->coeffs[var_idx].lb, var_idx + 1);
         goto parse_error;
       }
       model->coeffs[var_idx].status = LOWER;

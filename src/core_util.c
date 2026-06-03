@@ -10,7 +10,6 @@
 #include "Variable.h"
 #include "Constraint.h"
 
-
 void PrintHelp() {
   printf("NAME\n");
   printf("     RSA - Linear programming solver using the Revised Simplex "
