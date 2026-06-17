@@ -6,64 +6,65 @@
 #include "Constraint.h"
 
 #define MIN3IDX(a,b,c) (((a)<=(b)&&(a)<=(c)) ? 1 : (((b)<(a)&&(b)<=(c)) ? 2 : 3))
+#define FLIP(var) ((var).flipped *= -1) 
 
 // printing part was vibecoded
 void Get_ObjectiveFunctionBounded(Model *model, double *original_RHS) {
-    size_t n = model->num_constraints;
+  size_t n = model->num_constraints;
 
-    printf("\n%-12s %-10s %-10s %-16s %-20s\n", "Variable", "Obj Coef", "Value", "Value bounds", "Status");
-    printf("%-12s %-10s %-10s %-16s %-20s\n",   "--------", "--------", "-----", "------------", "------");
+  printf("\n%-12s %-10s %-10s %-16s %-20s\n", "Variable", "Obj Coef", "Value", "Value bounds", "Status");
+  printf("%-12s %-10s %-10s %-16s %-20s\n",   "--------", "--------", "-----", "------------", "------");
 
-    // basic variables
-    for (int i = 0; i < (int)n; i++) {
-        int basic_var = model->basics_vector[i];
-        if (original_RHS[i] < -1e-9 || original_RHS[i] > model->coeffs[basic_var].ub + 1e-9) {
+  // basic variables
+  for (int i = 0; i < (int)n; i++) {
+    int basic_var = model->basics_vector[i];
+    if (original_RHS[i] < -1e-9 || original_RHS[i] > model->coeffs[basic_var].ub + 1e-9) {
       printf("Model Infeasible. Artificial basic variable has a positive RHS value. Terminating!\n");  
-        model->objective_function = 0;
-        return;
-} 
-        if (model->coeffs[basic_var].type != STANDARD) continue;
+      model->objective_function = 0;
+      return;
+    } 
+    if (model->coeffs[basic_var].type != STANDARD) continue;
 
-        double c_j = (model->coeffs[basic_var].status == UPPER)
-                     ? model->coeffs[basic_var].value * -1
-                     : model->coeffs[basic_var].value;
-        double x_j = (model->coeffs[basic_var].status == UPPER)
-                     ? model->coeffs[basic_var].ub - original_RHS[i]
-                     : original_RHS[i];
 
-        model->objective_function += (c_j * x_j) * model->objective;
+    double c_j = model->coeffs[basic_var].value * model->coeffs[basic_var].flipped;
+    double x_j = (model->coeffs[basic_var].status == UPPER)
+      ? model->coeffs[basic_var].ub - original_RHS[i]
+      : original_RHS[i];
 
-        double lb = model->coeffs[basic_var].originallb;
-        double ub = model->coeffs[basic_var].ub + lb;
-        x_j += lb;
+    model->objective_function += (c_j * x_j) * model->objective;
 
-        char bounds_str[32];
-        snprintf(bounds_str, sizeof(bounds_str), "[%.4g, %.4g]", lb, ub);
-        printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", basic_var+1, model->coeffs[basic_var].original_value * model->objective, x_j, bounds_str, "Basic");
+    double lb = model->coeffs[basic_var].originallb;
+    double ub = model->coeffs[basic_var].ub + lb;
+    x_j += lb;
+
+    char bounds_str[32];
+    snprintf(bounds_str, sizeof(bounds_str), "[%.4g, %.4g]", lb, ub);
+    printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", basic_var+1, c_j * model->coeffs[basic_var].flipped, x_j, bounds_str, "Basic");
+
+  }
+
+  // non-basic variables
+  for (int i = 0; i < model->non_basics_count; i++) {
+    int non_basic = model->non_basics[i];
+    if (model->coeffs[non_basic].type != STANDARD) continue;
+
+    double lb = model->coeffs[non_basic].originallb;
+    double ub = model->coeffs[non_basic].ub + lb;
+    double c_j = model->coeffs[non_basic].value * model->coeffs[non_basic].flipped; 
+
+    char bounds_str[32];
+    snprintf(bounds_str, sizeof(bounds_str), "[%.4g, %.4g]", lb, ub);
+
+    if (model->coeffs[non_basic].status == UPPER) {
+      printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, c_j * model->coeffs[non_basic].flipped, ub, bounds_str, "At upper bound");
+
+    } else {
+printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, c_j, lb, bounds_str, "At lower bound");
+
     }
+  }
 
-    // non-basic variables
-    for (int i = 0; i < model->non_basics_count; i++) {
-        int non_basic = model->non_basics[i];
-        if (model->coeffs[non_basic].type != STANDARD) continue;
-
-        double lb = model->coeffs[non_basic].originallb;
-        double ub = model->coeffs[non_basic].ub + lb;
-        double c_j = (model->coeffs[non_basic].status == UPPER)
-                     ? model->coeffs[non_basic].value * -1
-                     : model->coeffs[non_basic].value;
-
-        char bounds_str[32];
-        snprintf(bounds_str, sizeof(bounds_str), "[%.4g, %.4g]", lb, ub);
-
-        if (model->coeffs[non_basic].status == UPPER) {
-            printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, model->coeffs[non_basic].original_value * model->objective, ub, bounds_str, "At upper bound");
-        } else {
-            printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, model->coeffs[non_basic].original_value * model->objective, lb, bounds_str, "At lower bound");
-        }
-    }
-
-printf("Optimal solution found! \n");
+  printf("Optimal solution found! \n");
 
 }
 
@@ -76,6 +77,7 @@ void BoundedSimplex(Model *model) {
   size_t n = model->num_constraints;
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) * 10 + 1;
   double **B_inv = Get_BasisInverse(model, model->solver_iterations);
+  double *original_RHS = (double *)malloc(n * sizeof(double));
 
   while (termination != 1) {
 
@@ -86,21 +88,19 @@ void BoundedSimplex(Model *model) {
 
     printf("Beginning solver iteration %i ... \n", model->solver_iterations);
 
-    
-    double original_RHS[n];
-    for (size_t i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
       original_RHS[i] = model->constraints[i].rhs;
 
     }
 
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
-    
 
-  
+
+
     int entering_var_idx = -1;
     int entering_var = -1;
     UpdateRhs(model, original_RHS, B_inv);
- 
+
 
     double best_reduced_cost = -DBL_MAX;
     for (size_t i = 0; i < model->non_basics_count; i++) {
@@ -115,14 +115,14 @@ void BoundedSimplex(Model *model) {
     if (best_reduced_cost <= 1e-9) {
       Get_ObjectiveFunctionBounded(model, original_RHS);
       termination++;
-      
+
       free(Simplex_multiplier);
       break;
     }
 
     double *Pivot = Get_pivot_column(B_inv, model, entering_var);
 
-    
+
     int exiting_var_idx = -1;
     int exiting_var = -1; 
     double best_ratio = DBL_MAX;
@@ -135,91 +135,93 @@ void BoundedSimplex(Model *model) {
 
     for (size_t i = 0; i < n; i++) {
       if (Pivot[i] < -1e-6) {
-          int idx = model->basics_vector[i]; 
-          ratio_neg = (model->coeffs[idx].ub - original_RHS[i]) / -Pivot[i];
-          
-          if (ratio_neg < best_ratio_neg) {
-              best_ratio_neg = ratio_neg;
-              exiting_var_idx_neg = i; 
-              exiting_var_neg = model->basics_vector[i];
-          }
-}
-      if (Pivot[i] >= 1e-6) {
-          
-          ratio = original_RHS[i] / Pivot[i];
-          if (ratio < best_ratio) {
-              best_ratio = ratio;
-              exiting_var_idx = i;
-              exiting_var = model->basics_vector[i];    
-          }
+        int idx = model->basics_vector[i]; 
+        ratio_neg = (model->coeffs[idx].ub - original_RHS[i]) / -Pivot[i];
+
+        if (ratio_neg < best_ratio_neg) {
+          best_ratio_neg = ratio_neg;
+          exiting_var_idx_neg = i; 
+          exiting_var_neg = model->basics_vector[i];
+        }
       }
-}
+      if (Pivot[i] >= 1e-6) {
+
+        ratio = original_RHS[i] / Pivot[i];
+        if (ratio < best_ratio) {
+          best_ratio = ratio;
+          exiting_var_idx = i;
+          exiting_var = model->basics_vector[i];    
+        }
+      }
+    }
     if (exiting_var_idx == -1 && exiting_var_idx_neg == -1 && model->coeffs[entering_var].ub == DBL_MAX) { 
       printf("LP is unbounded! Terminating!\n");
       free(Pivot);
-      
+
       free(Simplex_multiplier);
 
       break;
     }
-  int winner_ratio = MIN3IDX(best_ratio, best_ratio_neg, model->coeffs[entering_var].ub); // 1 for ratio 1, 2 for ratio 2 and 3 if upper bound wins, bless macros! 
-  switch (winner_ratio) {
-  case 1:
-    Update_BasisInverse(B_inv, Pivot, exiting_var_idx, n);
+    int winner_ratio = MIN3IDX(best_ratio, best_ratio_neg, model->coeffs[entering_var].ub); // 1 for ratio 1, 2 for ratio 2 and 3 if upper bound wins, bless macros! 
+    switch (winner_ratio) {
+      case 1:
+        Update_BasisInverse(B_inv, Pivot, exiting_var_idx, n);
 
-    model->non_basics[entering_var_idx] = exiting_var;
-    model->basics_vector[exiting_var_idx] = entering_var;
-    model->coeffs[exiting_var].status = LOWER;
-    model->coeffs[entering_var].status = LOWER;
+        model->non_basics[entering_var_idx] = exiting_var;
+        model->basics_vector[exiting_var_idx] = entering_var;
+        model->coeffs[exiting_var].status = LOWER;
+        model->coeffs[entering_var].status = LOWER;
 
-    break;
-  case 2:
-    Update_BasisInverse(B_inv, Pivot, exiting_var_idx_neg, n);
-    for (size_t i = 0; i < n; i++) {
-        model->constraints[i].rhs -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
-        model->constraints[i].lhs_vector[exiting_var_neg] *= -1;
+        break;
+      case 2:
+        Update_BasisInverse(B_inv, Pivot, exiting_var_idx_neg, n);
+        for (size_t i = 0; i < n; i++) {
+          model->constraints[i].rhs -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
+          // model->constraints[i].lhs_vector[exiting_var_neg] *= -1;
+        }
+        model->objective_function += (model->coeffs[exiting_var_neg].ub * model->coeffs[exiting_var_neg].value) * model->objective; 
+        // model->coeffs[exiting_var_neg].value *= -1;
+        FLIP(model->coeffs[exiting_var_neg]);  
+
+        model->basics_vector[exiting_var_idx_neg] = entering_var;
+        model->non_basics[entering_var_idx] = exiting_var_neg;
+        model->coeffs[exiting_var_neg].status = UPPER;
+        model->coeffs[entering_var].status = LOWER;
+
+        break;
+      case 3:
+
+        for (size_t i = 0; i < n ; i++) {
+          model->constraints[i].rhs -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
+          // model->constraints[i].lhs_vector[entering_var] *= -1; 
+
+
+        }
+        model->coeffs[entering_var].status = UPPER;
+        model->objective_function += (model->coeffs[entering_var].ub * model->coeffs[entering_var].value) * model->objective;   
+        FLIP(model->coeffs[entering_var]);
+        // model->coeffs[entering_var].value *= -1;
+
     }
-    model->objective_function += (model->coeffs[exiting_var_neg].ub * model->coeffs[exiting_var_neg].value) * model->objective; 
-    model->coeffs[exiting_var_neg].value *= -1;
 
-    model->basics_vector[exiting_var_idx_neg] = entering_var;
-    model->non_basics[entering_var_idx] = exiting_var_neg;
-    model->coeffs[exiting_var_neg].status = UPPER;
-    model->coeffs[entering_var].status = LOWER;
-
-    break;
-  case 3:
-
-  for (size_t i = 0; i < n ; i++) {
-      model->constraints[i].rhs -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
-      model->constraints[i].lhs_vector[entering_var] *= -1; 
-
-        
-  }
-  model->coeffs[entering_var].status = UPPER;
-  model->objective_function += (model->coeffs[entering_var].ub * model->coeffs[entering_var].value) * model->objective;   
-  model->coeffs[entering_var].value *= -1;
-  
-  
-}
- 
-if (model->solver_iterations % REINVERSION_FREQ == 0) {
-    for (int i = 0; i < n; i++) free(B_inv[i]);
-    free(B_inv);
-    B_inv = Get_BasisInverse(model, model->solver_iterations);
-}
+    if (model->solver_iterations % REINVERSION_FREQ == 0) {
+      for (int i = 0; i < n; i++) free(B_inv[i]);
+      free(B_inv);
+      B_inv = Get_BasisInverse(model, model->solver_iterations);
+    }
 
 
     model->solver_iterations++;
 
-    
+
     free(Pivot);
-        free(Simplex_multiplier);
+    free(Simplex_multiplier);
   }
-for (size_t i = 0; i < n; i++) {
-      free(B_inv[i]);
-    }
-    free(B_inv);
+  for (size_t i = 0; i < n; i++) {
+    free(B_inv[i]);
+  }
+  free(B_inv);
+  free(original_RHS);
 
 }
 
@@ -258,7 +260,7 @@ void TransformBoundedModel(Model *model) {
 
   if (memory_needed > max_memory) {
     fprintf(stderr, "Error: Model too large. Requires %zu MB, maximum is %d MB\n",
-            memory_needed / (1024 * 1024), MAX_MEM_BYTES);
+        memory_needed / (1024 * 1024), MAX_MEM_BYTES);
     exit(1);
   }
 

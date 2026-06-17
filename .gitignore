@@ -1,3 +1,4 @@
 build/*
 plan.txt
 compile_commands.json
+.cache/

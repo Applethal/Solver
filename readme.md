@@ -22,10 +22,6 @@ TODO:
 
 9- Change parsing so that constraints are parsed before the objective function, making it less expensive for the CPU to request and fill memory upon transforming.
 
-10- Convert >= constraints to <= to compress models further and avoid having to add artificial variables.
-
-11- <del> Replace Gauss' pivoting function with in-place algorithms for memory and time efficient solving. </del>
-
 # How to contribute 
 
 Test this with as many LP models please. So far I gave it nothing but LPs from linear algebra/Operation research text books and internet forums. Be sure to report any issues if necessary.
@@ -118,13 +114,9 @@ x_1 + 3x_2 + 2x_3 + x_4 \;&\leq\; 25 \\
 2x_2 + x_3 + 4x_4 + x_5 \;&\geq\; 20 \\
 3x_1 + x_2 + 2x_4 + 2x_5 \;&\leq\; 30 \\
 x_1 + x_2 + x_3 + x_4 + x_5 \;&=\; 15 \\
-0 \leq x_1 \leq 8, \qquad
-1 \leq x_2 \leq 7, \\
-0 \leq x_3 \leq 6, \qquad
-2 \leq x_4 \leq 9, \qquad
-1 \leq x_5 \leq 5
+0 \leq x_1 \leq 8, \quad 1 \leq x_2 \leq 7, \;&\quad 0 \leq x_3 \leq 6 \\
+2 \leq x_4 \leq 9, \quad 1 \leq x_5 \leq 5 \;&
 \end{aligned}
-
 $$
 
 

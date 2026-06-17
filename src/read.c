@@ -89,7 +89,8 @@ Model *ReadCsv(FILE *csvfile) {
       model->coeffs[idx].lb = 0;
       model->coeffs[idx].ub = DBL_MAX;
       model->integer_vars_idx[model->integer_vars_count++] = idx;
-      model->coeffs[idx].original_value = model->coeffs[idx].value;
+      // model->coeffs[idx].original_value = model->coeffs[idx].value;
+      model->coeffs[idx].flipped = 1; 
     } else if (b_marker != NULL) {
       *b_marker = '\0';
       model->coeffs[idx].value = atof(token) * model->objective;
@@ -97,13 +98,17 @@ Model *ReadCsv(FILE *csvfile) {
       model->coeffs[idx].ub = 1;
       model->coeffs[idx].lb = 0;
       model->integer_vars_idx[model->integer_vars_count++] = idx;
-      model->coeffs[idx].original_value = model->coeffs[idx].value;
+      // model->coeffs[idx].original_value = model->coeffs[idx].value;
+      model->coeffs[idx].flipped = 1; 
+
     } else {
       model->coeffs[idx].value = atof(token) * model->objective;
       model->coeffs[idx].type = STANDARD;
       model->coeffs[idx].lb = 0;
       model->coeffs[idx].ub = DBL_MAX;
-      model->coeffs[idx].original_value = model->coeffs[idx].value;
+      // model->coeffs[idx].original_value = model->coeffs[idx].value;
+      model->coeffs[idx].flipped = 1; 
+
     }
     if (model->bigM < model->coeffs[idx].value)
       model->bigM = model->coeffs[idx].value;
@@ -182,6 +187,7 @@ Model *ReadCsv(FILE *csvfile) {
       goto parse_error;
     }
     model->constraints[i].rhs = atof(token);
+    
   }
 
   // Read bounds

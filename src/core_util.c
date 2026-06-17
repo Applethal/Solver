@@ -191,7 +191,9 @@ double **Get_BasisInverse(Model *model, int iteration) {
       B[i] = (double *)malloc(n * sizeof(double));
       for (size_t j = 0; j < n; j++) {
         int basis_col = model->basics_vector[j];
-        B[i][j] = model->constraints[i].lhs_vector[basis_col];
+        // B[i][j] = model->constraints[i].lhs_vector[basis_col];
+        B[i][j] = model->constraints[i].lhs_vector[basis_col] * model->coeffs[basis_col].flipped;
+
       }
     }
 
@@ -287,10 +289,11 @@ double Get_ReducedPrice(Model *model, double **B_inv, int var_col,
   double dot_product = 0.0;
 
   for (int i = 0; i < n; i++) {
-    dot_product += multiplier_vector[i] * model->constraints[i].lhs_vector[var_col];
+    dot_product += multiplier_vector[i] * model->constraints[i].lhs_vector[var_col] * model->coeffs[var_col].flipped;
   }
 
-  double reduced_cost = model->coeffs[var_col].value - dot_product;
+  // double reduced_cost = model->coeffs[var_col].value - dot_product;
+  double reduced_cost = model->coeffs[var_col].value * model->coeffs[var_col].flipped - dot_product;
   return reduced_cost;
 }
 
@@ -302,7 +305,8 @@ double *Get_SimplexMultiplier(Model *model, double **B_inv) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
       int basic_col_idx = model->basics_vector[j];
-      sum += model->coeffs[basic_col_idx].value * B_inv[j][i];
+      // sum += model->coeffs[basic_col_idx].value * B_inv[j][i];
+      sum += model->coeffs[basic_col_idx].value * model->coeffs[basic_col_idx].flipped * B_inv[j][i];
     }
     multiplier_vector[i] = sum;
   }
@@ -317,8 +321,8 @@ double *Get_pivot_column(double **B_inv, Model *model, int best_cost_idx) {
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
-      sum += B_inv[i][j] * model->constraints[j].lhs_vector[best_cost_idx];
-
+      // sum += B_inv[i][j] * model->constraints[j].lhs_vector[best_cost_idx];
+      sum += B_inv[i][j] * model->constraints[j].lhs_vector[best_cost_idx] * model->coeffs[best_cost_idx].flipped;
     }
     Pivot[i] = sum;
   }
@@ -411,6 +415,23 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector) {
   printf("Optimal solution found! Objective value: %f\n",
          model->objective_function);
 }
+
+
+void SwitchConstraint(Model *model, int index){
+
+  for (size_t  i = 0; i < model->num_vars; i++) {
+      model->constraints[index].lhs_vector[i] *= -1;
+
+  
+  }
+  
+  model->constraints[index].constraints_symbol = 'L';
+
+  model->constraints[index].rhs *= -1;
+
+
+}
+
 
 void FreeModel(Model *model) {
   for (int i = 0; i < model->num_constraints; i++)

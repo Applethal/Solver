@@ -22,13 +22,12 @@ typedef enum {
 
 typedef struct Variable{
   double value;
-  VariableType type;  
   double lb; 
   double ub;
   double originallb; 
+  char flipped; // 1 if even flips, -1 if odd flips. This is my way of tracking bound flips
+  VariableType type;  
   VarStatus status;
-  double original_value; // During the bounded simplex, it might be that I will flip the signs of coefficients. I have no efficient way to track the original state for now, I hope 8 bytes won't be that much :( 
-
                       
 } Variable;
 

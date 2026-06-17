@@ -33,23 +33,23 @@
 
 
 typedef struct Model {
-  char objective;              // MINIMIZE -1, MAXIMIZE 1
   size_t num_constraints;      // Number of constraints
   size_t num_vars;             // Number of variables
   size_t bounded_vars;         // Number of bounded variables
-  Variable *coeffs;            // Variable objective coefficients
   double objective_function;   
-  int slacks_surplus_count;    // Slacks and surplus are mechanically the same 
-  int solver_iterations;      
-  int integer_vars_count;       
-  int *integer_vars_idx;
-  double bigM;                // max (coeffs) * 2
-  Constraint *constraints;    // constraints vector 
+  double bigM;                 // max (coeffs) * 2
+  Variable *coeffs;            // Variable objective coefficients
+  Constraint *constraints;     // constraints vector 
   int *basics_vector;
   int *non_basics;
   int *artificials_vector;
+  int *integer_vars_idx;
+  int slacks_surplus_count;    // Slacks and surplus are mechanically the same 
+  int solver_iterations;      
+  int integer_vars_count;       
   int non_basics_count;
   int artificials_count;
+  char objective;              // MINIMIZE -1, MAXIMIZE 1
 } Model;
 
 // Function declarations
@@ -71,6 +71,10 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector);
 void FreeModel(Model *model);
 void ValidateModelPointers(Model *model);
 size_t ModelMemSize(Model *model);
+
+
+
+void TestImplementation(); // In case I want to make a series of tests, TODO: Get every proven optimal solution
 
 
 
