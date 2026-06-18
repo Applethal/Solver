@@ -107,15 +107,15 @@ Which corresponds to:
 $$
 \begin{aligned}
 \text{Minimize } \quad 
-z \;=\;& 4x_1 + 6x_2 + 3x_3 + 5x_4 + 2x_5 \\
+z = 4x_1 + 6x_2 + 3x_3 + 5x_4 + 2x_5 \\
 \text{subject to} \quad 
-2x_1 + x_2 + x_3 + 3x_5 \;&\geq\; 18 \\
-x_1 + 3x_2 + 2x_3 + x_4 \;&\leq\; 25 \\
-2x_2 + x_3 + 4x_4 + x_5 \;&\geq\; 20 \\
-3x_1 + x_2 + 2x_4 + 2x_5 \;&\leq\; 30 \\
-x_1 + x_2 + x_3 + x_4 + x_5 \;&=\; 15 \\
-0 \leq x_1 \leq 8, \quad 1 \leq x_2 \leq 7, \;&\quad 0 \leq x_3 \leq 6 \\
-2 \leq x_4 \leq 9, \quad 1 \leq x_5 \leq 5 \;&
+2x_1 + x_2 + x_3 + 3x_5 &\geq\ 18 \\
+x_1 + 3x_2 + 2x_3 + x_4 &\leq\ 25 \\
+2x_2 + x_3 + 4x_4 + x_5 &\geq\ 20 \\
+3x_1 + x_2 + 2x_4 + 2x_5 &\leq\ 30 \\
+x_1 + x_2 + x_3 + x_4 + x_5 &= 15 \\
+0 \leq x_1 \leq 8 \quad 1 \leq x_2 \leq 7\\ 
+0 \leq x_3 \leq 6 \quad 2 \leq x_4 \leq 9\\ 1 \leq x_5 \leq 5
 \end{aligned}
 $$
 
@@ -133,7 +133,7 @@ Implicitly, all variables are non-negative (of course) you won't need to conside
 ```./RSA "filepath" "-Debug"```
 
 
-Where `filepath`is the `.csv` file path, `-Debug` is an optional flag that can be added as an argument, allowing you to see the solver operations step by step, the displayed indices are 0 indexed. The program will convert the problem to its canonical form then iteratively execute the algorithm until it terminates. The reason I am using the .csv file format is because of how portable it is + you can easily view whether the entries are valid using a Graphical CSV reader (e.g. OnlyOffice) to easily display whether data is missing.
+Where `filepath`is the `.csv` file path, `-Debug` is an optional flag that can be added as an argument, allowing you to see the solver operations step by step. The program will convert the problem to its canonical form then iteratively execute the algorithm until it terminates. The reason I am using the .csv file format is because of how portable it is + you can easily view whether the entries are valid using a Graphical CSV reader (e.g. OnlyOffice) to easily display whether data is missing.
 
 
 *Note*: By default the solver runs the Two-phase method scheme, which is slower since it solves twice. If you wish to use the Big M method (Artificials get max(coeffs) * 2 as a value), comment-out the function Solve_BigM and comment Solve in lines `86-87` before compiling. The Debug mode will run using the Big M method. The regular solving will use Two-Pass. I have yet to implement an additional flag to switch between the two modes for the sake of consistency. 

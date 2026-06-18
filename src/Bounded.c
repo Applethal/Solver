@@ -301,7 +301,9 @@ void TransformBoundedModel(Model *model) {
       model->coeffs[col].type   = SLACK;
       model->coeffs[col].value  = 0.0;
       model->coeffs[col].lb     = 0;
-      model->coeffs[col].ub     =  model->constraints[i].rhs - model->constraints[i].lhs_sum ;
+      // model->coeffs[col].ub     =  model->constraints[i].rhs - model->constraints[i].lhs_sum ;
+      // model->coeffs[col].ub     =  DBL_MAX;
+      model->coeffs[col].ub     =  model->constraints[i].rhs;
       slack_idx++;
 
     } else if (model->constraints[i].constraints_symbol == 'G') {
@@ -314,7 +316,9 @@ void TransformBoundedModel(Model *model) {
       model->coeffs[surplus_col].type  = SLACK;
       model->coeffs[surplus_col].value = 0.0;
       model->coeffs[surplus_col].lb    = 0;
-      model->coeffs[surplus_col].ub    = model->constraints[i].lhs_sum - model->constraints[i].rhs;
+      // model->coeffs[surplus_col].ub    = model->constraints[i].lhs_sum - model->constraints[i].rhs;
+      // model->coeffs[surplus_col].ub     =  DBL_MAX;  
+      model->coeffs[surplus_col].ub    = model->constraints[i].rhs;
 
       model->coeffs[artif_col].type  = ARTIFICIAL;
       model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);

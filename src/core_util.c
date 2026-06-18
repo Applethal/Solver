@@ -406,7 +406,7 @@ void Get_ObjectiveFunction(Model *model, double *rhs_vector) {
       double original_coeff = model->coeffs[basic_idx].value;
 
       
-      printf("Value of variable x%i is %f with coefficient %f\n", basic_idx,
+      printf("Value of variable x%i is %f with coefficient %f\n", basic_idx +1,
              rhs_vector[i], original_coeff * model->objective);
     }
   }

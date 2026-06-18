@@ -8,11 +8,13 @@
 
 void TestImplementation(){
 
-  double objective_functions[10] = {11.828861}; // TODO: Get all Objective functions and record them here 
+  double objective_functions[10] = {11.828861, 55.750000, 26.00000}; // TODO: Get all Objective functions and record them here 
   bool Debug = 0;
   double results[10] = {0};
 
-  char *paths[] = {"../Instances/gurobi_diet.csv"};
+  char *paths[] = {"../Instances/gurobi_diet.csv",
+                  "../Instances/bounded/test7.csv",
+                  "../Instances/bounded/test8.csv"};
 
   // replace 10 with actual size of paths array
   for (int i = 0; i < 10; i++) {
@@ -60,12 +62,12 @@ void TestImplementation(){
   }
   
   for (int i = 0; i < 10; i++) {
-    if (objective_functions[i] == results[i]) {
+    if (fabs(objective_functions[i] - results[i]) < 1e-4) {
       
         printf("Test passed!");
 
     }else {
-      printf("Test case %i comes with an incorrect objective function, result = %f", i, results[i] );
+      printf("Test case %i comes with an incorrect objective function, result = %f, expected = %f", i, results[i], objective_functions[i]);
     }
 
   
