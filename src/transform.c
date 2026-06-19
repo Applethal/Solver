@@ -57,6 +57,7 @@ void TransformModel(Model *model) {
       model->coeffs[col].value   = 0.0;
       model->coeffs[col].lb      = 0;
       model->coeffs[col].ub      = DBL_MAX;
+      model->coeffs[col].flipped = 1;
       slack_idx++;
 
     } else if (model->constraints[i].constraints_symbol == 'G') {
@@ -71,10 +72,13 @@ void TransformModel(Model *model) {
       model->coeffs[surplus_col].lb    = 0;
       model->coeffs[surplus_col].ub    = DBL_MAX;
 
+      model->coeffs[surplus_col].flipped = 1;
+
       model->coeffs[artif_col].type  = ARTIFICIAL;
       model->coeffs[artif_col].value = -(model->bigM * 2 * model->num_vars);
       model->coeffs[artif_col].lb    = 0;
       model->coeffs[artif_col].ub    = DBL_MAX;
+      model->coeffs[artif_col].flipped = 1;
 
       model->artificials_vector[artificial_idx] = artif_col;
       model->basics_vector[i] = artif_col;
@@ -91,6 +95,7 @@ void TransformModel(Model *model) {
       model->coeffs[artif_col].lb    = 0;
       model->coeffs[artif_col].ub    = DBL_MAX;
 
+      model->coeffs[artif_col].flipped = 1;
       model->artificials_vector[artificial_idx] = artif_col;
       model->basics_vector[i] = artif_col;
 

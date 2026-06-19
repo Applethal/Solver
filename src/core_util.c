@@ -12,18 +12,16 @@
 
 void PrintHelp() {
   printf("NAME\n");
-  printf("     RSA - Linear programming solver using the Revised Simplex "
-         "Algorithm\n\n");
+  printf("     RSA - Linear programming solver\n\n");
   printf("SYNOPSIS\n");
   printf("     ./Solver csv file path [-Debug]\n\n");
   printf("DESCRIPTION\n");
   printf(
-      "     RSA is a linear programming solver that implements the Revised\n");
-  printf("     Simplex Algorithm. It reads a linear programming model from a "
+      "     Solver is a linear programming solver. It reads a linear programming model from a "
          "CSV file\n");
   printf("     and computes the optimal solution for the given objective "
          "function and\n");
-  printf("     constraints.\n\n");
+  printf("     constraints setup.\n\n");
   printf("     The program supports both maximization and minimization "
          "objectives and\n");
   printf("     automatically handles equality and inequality constraints by "
@@ -37,13 +35,13 @@ void PrintHelp() {
          "programming\n");
   printf("             model. This argument is required. The CSV file should "
          "be properly\n");
-  printf("             formatted with the objective function, variables, and "
-         "constraints.\n\n");
+  printf("             formatted with the objective function, variables, "
+         "bounds and constraints.\n\n");
   printf("     -Debug  Enables debug mode. When this flag is provided, the "
          "program\n");
   printf("             displays detailed information about the model and shows "
          "iterative\n");
-  printf("             steps during the solving process (bigM mode only). \n");
+  printf("             steps during the solving process (bigM solving mode only). \n");
   printf("EXIT STATUS\n");
   printf("     0       Optimal solution obtained.\n");
   printf("     1       File opening error (file does not exist or cannot be "
@@ -61,7 +59,7 @@ void PrintHelp() {
   printf("AUTHOR\n");
   printf("     Written by Applethal / Saad Nordine\n\n");
   printf("     Thanks to Victor Hebert for implementing the Make file routine "
-         "sequence");
+         "sequence\n");
   printf("REPORTING BUGS\n");
   printf("     Please report any bugs in the issues page in "
          "https://github.com/Applethal/Solver\n\n");

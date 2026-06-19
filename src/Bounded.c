@@ -88,7 +88,7 @@ void BoundedSimplex(Model *model) {
 
     printf("Beginning solver iteration %i ... \n", model->solver_iterations);
 
-        for (size_t i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
       original_RHS[i] = model->constraints[i].rhs;
 
     }
