@@ -25,7 +25,7 @@ void RunPhase2(Model *model) {
 
 int RunPhase1(Model *model) {
   int total_cols =
-      model->num_vars + model->slacks_surplus_count + model->artificials_count;
+    model->num_vars + model->slacks_surplus_count + model->artificials_count;
 
   // Save real objective coefficients
   double *saved = malloc(total_cols * sizeof(double));
@@ -75,13 +75,18 @@ int RunPhase1(Model *model) {
 }
 
 int SimplexLoop(Model *model, double *solution_out) {
-  
-  
+
+
 
 
   size_t n = model->num_constraints;
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
   double **B_inv = Get_BasisInverse(model, model->solver_iterations);
+
+  double original_RHS[n];
+  for (size_t i = 0; i < n; i++)
+    original_RHS[i] = model->constraints[i].rhs;
+  // UpdateRhs(model, original_RHS, B_inv);
 
   while (1) {
     if (model->solver_iterations == MAX_ITERATIONS) {
@@ -93,12 +98,7 @@ int SimplexLoop(Model *model, double *solution_out) {
 
     printf("Beginning solver iteration %i\n", model->solver_iterations);
 
-    double original_RHS[n];
-    for (size_t i = 0; i < n; i++)
-      original_RHS[i] = model->constraints[i].rhs;
-
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
-    UpdateRhs(model, original_RHS, B_inv);
 
     int entering_var_idx = 0, entering_var = 0;
     double best_reduced_cost = -DBL_MAX;
@@ -158,6 +158,18 @@ int SimplexLoop(Model *model, double *solution_out) {
       for (size_t i = 0; i < n; i++) free(B_inv[i]);
       free(B_inv);
       B_inv = Get_BasisInverse(model, model->solver_iterations);
+
+      for (size_t i = 0; i < n; i++)
+        original_RHS[i] = model->constraints[i].rhs;
+      UpdateRhs(model, original_RHS, B_inv);
+    } else {
+
+      for (size_t i = 0; i < n; i++) {
+        if (i == (size_t)exiting_var_idx)
+          original_RHS[i] = best_ratio;
+        else
+          original_RHS[i] -= Pivot[i] * best_ratio;
+      }
     }
 
     model->solver_iterations++;

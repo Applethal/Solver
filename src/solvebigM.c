@@ -18,44 +18,38 @@ void Solve_BigM(Model *model) {
   }
 
 void RevisedSimplex(Model *model) {
-  
-
 
   int termination = 0;
   size_t n = model->num_constraints;
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
+  double **B_inv = Get_BasisInverse(model, model->solver_iterations);
+  double *original_RHS = (double *)malloc(n * sizeof(double));
+
+  for (size_t i = 0; i < n; i++) {
+    original_RHS[i] = model->constraints[i].rhs;
+  }
+  // UpdateRhs(model, original_RHS, B_inv);
 
   while (termination != 1) {
+
     if (model->solver_iterations == MAX_ITERATIONS) {
       printf("Max iterations reached. Terminating!\n");
-      FreeModel(model);
-      exit(0);
+      break;
     }
 
-    int feasibility_check = 0;
     printf("Beginning solver iteration %i ... \n", model->solver_iterations);
-
-    double **B_inv = Get_BasisInverse(model, model->solver_iterations);
-
-    double original_RHS[n];
-    for (size_t i = 0; i < n; i++) {
-      original_RHS[i] = model->constraints[i].rhs;
-
-    }
 
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
 
-    int entering_var_idx = 0;
-    int entering_var = 0;
-    UpdateRhs(model, original_RHS, B_inv);
+    int entering_var_idx = -1;
+    int entering_var = -1;
 
     double best_reduced_cost = -DBL_MAX;
-
+    int feasibility_check = 0;
     for (size_t i = 0; i < model->non_basics_count; i++) {
       int non_basic_idx = model->non_basics[i];
       double reduced_cost =
           Get_ReducedPrice(model, B_inv, non_basic_idx, Simplex_multiplier);
-
       if (reduced_cost > best_reduced_cost) {
         best_reduced_cost = reduced_cost;
         entering_var_idx = i;
@@ -65,16 +59,10 @@ void RevisedSimplex(Model *model) {
         feasibility_check++;
       }
     }
-
     if (feasibility_check == model->non_basics_count) {
       printf("Solver loop terminated!\n");
       termination++;
       Get_ObjectiveFunction(model, original_RHS);
-
-      for (size_t i = 0; i < n; i++) {
-        free(B_inv[i]);
-      }
-      free(B_inv);
       free(Simplex_multiplier);
       break;
     }
@@ -84,7 +72,6 @@ void RevisedSimplex(Model *model) {
     int exiting_var_idx = -1;
     int exiting_var = -1;
     double best_ratio = DBL_MAX;
-
     for (size_t i = 0; i < n; i++) {
       if (Pivot[i] <= 1e-6) {
         continue;
@@ -96,23 +83,49 @@ void RevisedSimplex(Model *model) {
         exiting_var = model->basics_vector[i];
       }
     }
-
     if (exiting_var_idx == -1) {
       printf("LP is unbounded! Terminating!\n");
-      exit(0);
+      free(Pivot);
+      free(Simplex_multiplier);
+      break;
     }
+
+    Update_BasisInverse(B_inv, Pivot, exiting_var_idx, n);
 
     model->non_basics[entering_var_idx] = exiting_var;
     model->basics_vector[exiting_var_idx] = entering_var;
+
+    if (model->solver_iterations % REINVERSION_FREQ == 0) {
+      for (size_t i = 0; i < n; i++) free(B_inv[i]);
+      free(B_inv);
+      B_inv = Get_BasisInverse(model, model->solver_iterations);
+
+      for (size_t i = 0; i < n; i++) {
+        original_RHS[i] = model->constraints[i].rhs;
+      }
+      UpdateRhs(model, original_RHS, B_inv);
+    } else {
+
+      for (size_t i = 0; i < n; i++) {
+        if (i == (size_t)exiting_var_idx) {
+          original_RHS[i] = best_ratio;
+        } else {
+          original_RHS[i] -= Pivot[i] * best_ratio;
+        }
+      }
+    }
+
     model->solver_iterations++;
 
     free(Pivot);
-    for (size_t i = 0; i < n; i++) {
-      free(B_inv[i]);
-    }
-    free(B_inv);
     free(Simplex_multiplier);
   }
+
+  for (size_t i = 0; i < n; i++) {
+    free(B_inv[i]);
+  }
+  free(B_inv);
+  free(original_RHS);
 }
 void RevisedSimplex_Debug(Model *model) {
 
@@ -154,22 +167,33 @@ void RevisedSimplex_Debug(Model *model) {
       "===================================================================\n");
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
 
+  double *original_RHS = (double *)malloc(n * sizeof(double));
+
+  if (model->solver_iterations == 1) {
+    printf("Solver iteration 1, B^-1 is identity matrix\n");
+  } else {
+    printf("Getting B^-1 matrix:\n");
+  }
+  double **B_inv = Get_BasisInverse(model, model->solver_iterations);
+
+  for (size_t i = 0; i < n; i++) {
+    original_RHS[i] = model->constraints[i].rhs;
+  }
+  // UpdateRhs(model, original_RHS, B_inv);
+  printf("Initial RHS vector (B^-1 * b):\n");
+  for (size_t i = 0; i < n; i++) {
+    printf(" %f ", original_RHS[i]);
+  }
+  printf("\n");
+
   while (termination != 1) {
     int feasibility_check = 0;
     if (model->solver_iterations == MAX_ITERATIONS) {
       printf("Max iterations reached. Terminating!\n");
-      return;
+      break;
     }
 
     printf("Beginning solver iteration %i ... \n", model->solver_iterations);
-
-    if (model->solver_iterations == 1) {
-      printf("Solver iteration 1, B^-1 is identity matrix\n");
-    } else {
-      printf("Getting B^-1 matrix:\n");
-    }
-
-    double **B_inv = Get_BasisInverse(model, model->solver_iterations);
 
     printf("==================================================================="
            "\n");
@@ -182,11 +206,6 @@ void RevisedSimplex_Debug(Model *model) {
     printf("\n");
     printf("==================================================================="
            "\n");
-
-    double original_RHS[n];
-    for (size_t i = 0; i < n; i++) {
-      original_RHS[i] = model->constraints[i].rhs;
-    }
 
     printf("Getting the simplex multiplier P vector:\n");
     double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
@@ -201,11 +220,10 @@ void RevisedSimplex_Debug(Model *model) {
 
     int entering_var_idx = 0;
     int entering_var = 0;
-    UpdateRhs(model, original_RHS, B_inv);
 
-    printf("Updating the Right hand side vector\n");
+    printf("Current RHS vector:\n");
     for (size_t i = 0; i < n; i++) {
-      printf(" %f ", model->constraints[i].rhs);
+      printf(" %f ", original_RHS[i]);
     }
     printf("\n");
 
@@ -244,11 +262,6 @@ void RevisedSimplex_Debug(Model *model) {
       printf("Solver loop terminated!\n");
       termination++;
       Get_ObjectiveFunction(model, original_RHS);
-
-      for (size_t i = 0; i < n; i++) {
-        free(B_inv[i]);
-      }
-      free(B_inv);
       free(Simplex_multiplier);
       break;
     }
@@ -278,13 +291,17 @@ void RevisedSimplex_Debug(Model *model) {
 
     if (exiting_var_idx == -1) {
       printf("No exiting variable found, LP is unbounded! Terminating!\n");
-      exit(0);
+      free(Pivot);
+      free(Simplex_multiplier);
+      break;
     }
 
     printf("The exiting variable is %i with ratio of %f \n", exiting_var,
            best_ratio);
     printf("==================================================================="
            "\n");
+
+    Update_BasisInverse(B_inv, Pivot, exiting_var_idx, n);
 
     model->non_basics[entering_var_idx] = exiting_var;
     model->basics_vector[exiting_var_idx] = entering_var;
@@ -302,13 +319,37 @@ void RevisedSimplex_Debug(Model *model) {
     for (size_t i = 0; i < model->num_constraints; i++) {
       printf(" %i ", model->basics_vector[i]);
     }
+    printf("\n");
+
+    if (model->solver_iterations % REINVERSION_FREQ == 0) {
+      printf("\nReinversion frequency hit, rebuilding B^-1 from scratch:\n");
+      for (size_t i = 0; i < n; i++) free(B_inv[i]);
+      free(B_inv);
+      B_inv = Get_BasisInverse(model, model->solver_iterations);
+
+      printf("Resyncing RHS vector exactly (drift correction):\n");
+      for (size_t i = 0; i < n; i++) {
+        original_RHS[i] = model->constraints[i].rhs;
+      }
+      UpdateRhs(model, original_RHS, B_inv);
+    } else {
+
+      for (size_t i = 0; i < n; i++) {
+        if (i == (size_t)exiting_var_idx) {
+          original_RHS[i] = best_ratio;
+        } else {
+          original_RHS[i] -= Pivot[i] * best_ratio;
+        }
+      }
+    }
+    printf("RHS vector after update:\n");
+    for (size_t i = 0; i < n; i++) {
+      printf(" %f ", original_RHS[i]);
+    }
+    printf("\n");
 
     model->solver_iterations++;
     free(Pivot);
-    for (size_t i = 0; i < n; i++) {
-      free(B_inv[i]);
-    }
-    free(B_inv);
     free(Simplex_multiplier);
 
     printf("\n");
@@ -318,6 +359,10 @@ void RevisedSimplex_Debug(Model *model) {
            "\n");
     getchar();
   }
+
+  for (size_t i = 0; i < n; i++) {
+    free(B_inv[i]);
+  }
+  free(B_inv);
+  free(original_RHS);
 }
-
-

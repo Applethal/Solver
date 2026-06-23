@@ -157,7 +157,7 @@ void BoundedSimplex(Model *model) {
     if (exiting_var_idx == -1 && exiting_var_idx_neg == -1 && model->coeffs[entering_var].ub == DBL_MAX) { 
       printf("LP is unbounded! Terminating!\n");
       free(Pivot);
-
+      
       free(Simplex_multiplier);
 
       break;

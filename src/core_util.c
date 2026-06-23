@@ -125,6 +125,7 @@ void MainLoop(int argc, char *argv[]) {
   size_t size = ModelMemSize(model);
   printf("Model's estimated memory usage: %zu bytes (%.2f KB)\n", size,
          size / 1024.0);
+  PrintConstraints_matrix(model);
   FreeModel(model);
 }
 
