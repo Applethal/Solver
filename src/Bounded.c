@@ -59,7 +59,7 @@ void Get_ObjectiveFunctionBounded(Model *model, double *original_RHS) {
       printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, c_j * model->coeffs[non_basic].flipped, ub, bounds_str, "At upper bound");
 
     } else {
-printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, c_j, lb, bounds_str, "At lower bound");
+      printf("x%-11i %-10.4f %-10.4f %-16s %-20s\n", non_basic+1, c_j, lb, bounds_str, "At lower bound");
 
     }
   }
@@ -78,6 +78,13 @@ void BoundedSimplex(Model *model) {
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) * 10 + 1;
   double **B_inv = Get_BasisInverse(model, model->solver_iterations);
   double *original_RHS = (double *)malloc(n * sizeof(double));
+  double *current_RHS = (double *)malloc(n * sizeof(double));
+  double *Simplex_multiplier = (double *)malloc(n * sizeof(double));
+  double *Pivot = (double *)malloc(n * sizeof(double));
+
+  for (size_t i = 0; i < n; i++) {
+    original_RHS[i] = model->constraints[i].rhs;
+  }
 
   while (termination != 1) {
 
@@ -88,18 +95,19 @@ void BoundedSimplex(Model *model) {
 
     printf("Beginning solver iteration %i ... \n", model->solver_iterations);
 
-    for (size_t i = 0; i < n; i++) {
-      original_RHS[i] = model->constraints[i].rhs;
+    // for (size_t i = 0; i < n; i++) {
+    //   original_RHS[i] = model->constraints[i].rhs;
+    //
+    // }
 
-    }
+    //double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
 
-    double *Simplex_multiplier = Get_SimplexMultiplier(model, B_inv);
-
+    Get_SimplexMultiplier(model, B_inv, Simplex_multiplier);
 
 
     int entering_var_idx = -1;
     int entering_var = -1;
-    UpdateRhs(model, original_RHS, B_inv);
+    Bounded_UpdateRhs(model, original_RHS, current_RHS, B_inv);
 
 
     double best_reduced_cost = -DBL_MAX;
@@ -113,15 +121,14 @@ void BoundedSimplex(Model *model) {
       }
     }
     if (best_reduced_cost <= 1e-9) {
-      Get_ObjectiveFunctionBounded(model, original_RHS);
+      Get_ObjectiveFunctionBounded(model, current_RHS);
       termination++;
 
-      free(Simplex_multiplier);
       break;
     }
 
-    double *Pivot = Get_pivot_column(B_inv, model, entering_var);
-
+    // double *Pivot = Get_pivot_column(B_inv, model, entering_var);
+    Get_pivot_column(B_inv, model, entering_var, Pivot); 
 
     int exiting_var_idx = -1;
     int exiting_var = -1; 
@@ -136,7 +143,7 @@ void BoundedSimplex(Model *model) {
     for (size_t i = 0; i < n; i++) {
       if (Pivot[i] < -1e-6) {
         int idx = model->basics_vector[i]; 
-        ratio_neg = (model->coeffs[idx].ub - original_RHS[i]) / -Pivot[i];
+        ratio_neg = (model->coeffs[idx].ub - current_RHS[i]) / -Pivot[i];
 
         if (ratio_neg < best_ratio_neg) {
           best_ratio_neg = ratio_neg;
@@ -146,7 +153,7 @@ void BoundedSimplex(Model *model) {
       }
       if (Pivot[i] >= 1e-6) {
 
-        ratio = original_RHS[i] / Pivot[i];
+        ratio = current_RHS[i] / Pivot[i];
         if (ratio < best_ratio) {
           best_ratio = ratio;
           exiting_var_idx = i;
@@ -156,12 +163,11 @@ void BoundedSimplex(Model *model) {
     }
     if (exiting_var_idx == -1 && exiting_var_idx_neg == -1 && model->coeffs[entering_var].ub == DBL_MAX) { 
       printf("LP is unbounded! Terminating!\n");
-      free(Pivot);
-      
-      free(Simplex_multiplier);
+
 
       break;
     }
+
     int winner_ratio = MIN3IDX(best_ratio, best_ratio_neg, model->coeffs[entering_var].ub); // 1 for ratio 1, 2 for ratio 2 and 3 if upper bound wins, bless macros! 
     switch (winner_ratio) {
       case 1:
@@ -176,8 +182,9 @@ void BoundedSimplex(Model *model) {
       case 2:
         Update_BasisInverse(B_inv, Pivot, exiting_var_idx_neg, n);
         for (size_t i = 0; i < n; i++) {
-          model->constraints[i].rhs -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
+          // model->constraints[i].rhs -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
           // model->constraints[i].lhs_vector[exiting_var_neg] *= -1;
+          original_RHS[i] -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
         }
         model->objective_function += (model->coeffs[exiting_var_neg].ub * model->coeffs[exiting_var_neg].value) * model->objective; 
         // model->coeffs[exiting_var_neg].value *= -1;
@@ -192,7 +199,8 @@ void BoundedSimplex(Model *model) {
       case 3:
 
         for (size_t i = 0; i < n ; i++) {
-          model->constraints[i].rhs -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
+          original_RHS[i] -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
+          // model->constraints[i].rhs -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
           // model->constraints[i].lhs_vector[entering_var] *= -1; 
 
 
@@ -214,14 +222,16 @@ void BoundedSimplex(Model *model) {
     model->solver_iterations++;
 
 
-    free(Pivot);
-    free(Simplex_multiplier);
+    
   }
   for (size_t i = 0; i < n; i++) {
     free(B_inv[i]);
   }
   free(B_inv);
   free(original_RHS);
+  free(current_RHS);
+  free(Simplex_multiplier);
+  free(Pivot);
 
 }
 
@@ -364,3 +374,15 @@ void TransformBoundedModel(Model *model) {
   }
   model->non_basics_count = non_basic_idx;
 }
+
+
+void Bounded_UpdateRhs(Model *model, double *original_RHS, double *current_RHS, double **B) {
+  size_t n = model->num_constraints;
+  for (int i = 0; i < n; i++) {
+    current_RHS[i] = 0.0;
+    for (int j = 0; j < n; j++) {
+      current_RHS[i] += B[i][j] * original_RHS[j];
+    }
+  }
+}
+

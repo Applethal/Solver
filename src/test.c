@@ -8,13 +8,15 @@
 
 void TestImplementation(){
 
-  double objective_functions[10] = {11.828861, 55.750000, 26.00000}; // TODO: Get all Objective functions and record them here 
+  double objective_functions[10] = {11.828861, 55.750000, 26.00000, 20.750000}; // TODO: Get all Objective functions and record them here 
   bool Debug = 0;
   double results[10] = {0};
 
   char *paths[] = {"../Instances/gurobi_diet.csv",
                   "../Instances/bounded/test7.csv",
-                  "../Instances/bounded/test8.csv"};
+                  "../Instances/bounded/test8.csv", 
+                  "../Instances/bounded/small.csv"};
+  
 
   // replace 10 with actual size of paths array
   for (int i = 0; i < 10; i++) {

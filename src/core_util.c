@@ -296,37 +296,27 @@ double Get_ReducedPrice(Model *model, double **B_inv, int var_col,
   return reduced_cost;
 }
 
-double *Get_SimplexMultiplier(Model *model, double **B_inv) {
+void Get_SimplexMultiplier(Model *model, double **B_inv, double *multiplier_vector) {
   size_t n = model->num_constraints;
-  double *multiplier_vector = (double *)malloc(sizeof(double) * n);
-
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
       int basic_col_idx = model->basics_vector[j];
-      // sum += model->coeffs[basic_col_idx].value * B_inv[j][i];
       sum += model->coeffs[basic_col_idx].value * model->coeffs[basic_col_idx].flipped * B_inv[j][i];
     }
     multiplier_vector[i] = sum;
   }
-
-  return multiplier_vector;
 }
 
-double *Get_pivot_column(double **B_inv, Model *model, int best_cost_idx) {
+void Get_pivot_column(double **B_inv, Model *model, int best_cost_idx, double *Pivot) {
   size_t n = model->num_constraints;
-  double *Pivot = (double *)malloc(sizeof(double) * n);
-
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
-      // sum += B_inv[i][j] * model->constraints[j].lhs_vector[best_cost_idx];
       sum += B_inv[i][j] * model->constraints[j].lhs_vector[best_cost_idx] * model->coeffs[best_cost_idx].flipped;
     }
     Pivot[i] = sum;
   }
-
-  return Pivot;
 }
 
 void UpdateRhs(Model *model, double *rhs_vector_copy, double **B) {

@@ -40,16 +40,16 @@ typedef struct Model {
   double bigM;                 // max (coeffs) * 2
   Variable *coeffs;            // Variable objective coefficients
   Constraint *constraints;     // constraints vector 
-  int *basics_vector;
-  int *non_basics;
-  int *artificials_vector;
-  int *integer_vars_idx;
-  int slacks_surplus_count;    // Slacks and surplus are mechanically the same 
-  int solver_iterations;      
-  int integer_vars_count;       
-  int non_basics_count;
-  int artificials_count;
-  char objective;              // MINIMIZE -1, MAXIMIZE 1
+  unsigned int *basics_vector;
+  unsigned int *non_basics;
+  unsigned int *artificials_vector;
+  unsigned int *integer_vars_idx;
+  unsigned int slacks_surplus_count;    // Slacks and surplus are mechanically the same 
+  unsigned int solver_iterations;      
+  unsigned int integer_vars_count;       
+  unsigned int non_basics_count;
+  unsigned int artificials_count;
+  signed char objective;              // MINIMIZE -1, MAXIMIZE 1
 } Model;
 
 // Function declarations
@@ -64,8 +64,8 @@ void InvertMatrix(double **matrix, size_t n); // I no longer use this. I use ran
 void RevisedSimplex(Model *model); 
 void RevisedSimplex_Debug(Model *model); 
 double Get_ReducedPrice(Model *model, double **B_inv, int var_col, double *multiplier_vector);
-double *Get_SimplexMultiplier(Model *model, double **B_inv);
-double *Get_pivot_column(double **B_inv, Model *model, int best_cost_idx);
+void Get_SimplexMultiplier(Model *model, double **B_inv, double *Simplex_multiplier);
+void Get_pivot_column(double **B_inv, Model *model, int best_cost_idx, double *Pivot);
 void UpdateRhs(Model *model, double *rhs_vector_copy, double **B);
 void Get_ObjectiveFunction(Model *model, double *rhs_vector);
 void FreeModel(Model *model);
@@ -87,6 +87,7 @@ void BoundedSimplex(Model* model);
 void TransformBoundedModel(Model* model); // Bounded variable simplex will have a different procedure
 void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector);
 void Update_BasisInverse(double **B_inv, double *Pivot, int pivot_row, int n); 
+void Bounded_UpdateRhs(Model *model, double *original_RHS, double *current_RHS, double **B); 
 
 
 // Two-Phase code

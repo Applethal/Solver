@@ -25,7 +25,7 @@ typedef struct Variable{
   double lb; 
   double ub;
   double originallb; 
-  char flipped; // 1 if even flips, -1 if odd flips. This is my way of tracking bound flips
+  signed char flipped; // 1 if even flips, -1 if odd flips. This is my way of tracking bound flips
   VariableType type;  
   VarStatus status;
                       

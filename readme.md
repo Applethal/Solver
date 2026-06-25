@@ -1,33 +1,12 @@
 # Linear mathematical models solver in pure C
-The repo was previously named RSA. To eliminate all sorts of confusion with the RSA encryption algorithm, I will just call it Solver for now.
 
-TODO: 
 
-<del>1- Add error handling.</del>
-
-2- <del>Add infeasibility check while solving.</del>
-
-3- <del>Implement proper memory de-allocation.</del>
-
-4- <del>Might as well substitute .txt data input with .csv data instead. Maybe even work on better data parsing since it does more computational effort, in my opinion. </del>
-
-5- <del> Add debug mode </del>.
-
-6- <del>Using Gauss' pivoting technique for matrix inversion is an effort of  $O(n^3)$, can I do better? </del> <del> Update: After learning a bit more on this topic, it would appear that using this algorithm is suitable for this application</del>. 
-<del>Update 6/12/2025: Just learned that I don't need the entire B matrix. Using the LU factorization technique. There is way too much to improve in this area. </del>
-
-7- Given how portable this program is, maybe I should implement Branch-and-Bound to consider integer points in the space.
-
-8- Implement model pre-processing cuts to reduce space.
-
-9- Change parsing so that constraints are parsed before the objective function, making it less expensive for the CPU to request and fill memory upon transforming.
+# About
+In this code I attempted to write a mathematical solver that utilizes the Revised Simplex Algorithm by George B. Dantzig (1953) <del>using the Big-M method</del>. The model input should be written (In general form) as such:
 
 # How to contribute 
 
 Test this with as many LP models please. So far I gave it nothing but LPs from linear algebra/Operation research text books and internet forums. Be sure to report any issues if necessary.
-
-# About
-In this code I attempted to write a mathematical solver that utilizes the Revised Simplex Algorithm by George B. Dantzig (1953) <del>using the Big-M method</del>. The model input should be written (In general form) as such:
 
 ```
 OBJECTIVE, Variables count, Constraints count
