@@ -9,7 +9,7 @@
 #define FLIP(var) ((var).flipped *= -1) 
 
 // printing part was vibecoded
-void Get_ObjectiveFunctionBounded(Model *model, double *original_RHS) {
+void Get_ObjectiveFunctionBounded(Model *model, double *solution) {
   size_t n = model->num_constraints;
 
   printf("\n%-12s %-10s %-10s %-16s %-20s\n", "Variable", "Obj Coef", "Value", "Value bounds", "Status");
@@ -18,7 +18,7 @@ void Get_ObjectiveFunctionBounded(Model *model, double *original_RHS) {
   // basic variables
   for (int i = 0; i < (int)n; i++) {
     int basic_var = model->basics_vector[i];
-    if (original_RHS[i] < -1e-9 || original_RHS[i] > model->coeffs[basic_var].ub + 1e-9) {
+    if (solution[i] < -1e-9 || solution[i] > model->coeffs[basic_var].ub + 1e-9) {
       printf("Model Infeasible. Artificial basic variable has a positive RHS value. Terminating!\n");  
       model->objective_function = 0;
       return;
@@ -28,8 +28,8 @@ void Get_ObjectiveFunctionBounded(Model *model, double *original_RHS) {
 
     double c_j = model->coeffs[basic_var].value * model->coeffs[basic_var].flipped;
     double x_j = (model->coeffs[basic_var].status == UPPER)
-      ? model->coeffs[basic_var].ub - original_RHS[i]
-      : original_RHS[i];
+      ? model->coeffs[basic_var].ub - solution[i]
+      : solution[i];
 
     model->objective_function += (c_j * x_j) * model->objective;
 
@@ -77,13 +77,13 @@ void BoundedSimplex(Model *model) {
   size_t n = model->num_constraints;
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) * 10 + 1;
   double **B_inv = Get_BasisInverse(model, model->solver_iterations);
-  double *original_RHS = (double *)malloc(n * sizeof(double));
+  double *solution = (double *)malloc(n * sizeof(double));
   double *current_RHS = (double *)malloc(n * sizeof(double));
   double *Simplex_multiplier = (double *)malloc(n * sizeof(double));
   double *Pivot = (double *)malloc(n * sizeof(double));
 
   for (size_t i = 0; i < n; i++) {
-    original_RHS[i] = model->constraints[i].rhs;
+    solution[i] = model->constraints[i].rhs;
   }
 
   while (termination != 1) {
@@ -96,7 +96,7 @@ void BoundedSimplex(Model *model) {
     printf("Beginning solver iteration %i ... \n", model->solver_iterations);
 
     // for (size_t i = 0; i < n; i++) {
-    //   original_RHS[i] = model->constraints[i].rhs;
+    //   solution[i] = model->constraints[i].rhs;
     //
     // }
 
@@ -107,7 +107,7 @@ void BoundedSimplex(Model *model) {
 
     int entering_var_idx = -1;
     int entering_var = -1;
-    Bounded_UpdateRhs(model, original_RHS, current_RHS, B_inv);
+    Bounded_UpdateRhs(model, solution, current_RHS, B_inv);
 
 
     double best_reduced_cost = -DBL_MAX;
@@ -184,7 +184,7 @@ void BoundedSimplex(Model *model) {
         for (size_t i = 0; i < n; i++) {
           // model->constraints[i].rhs -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
           // model->constraints[i].lhs_vector[exiting_var_neg] *= -1;
-          original_RHS[i] -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
+          solution[i] -= model->constraints[i].lhs_vector[exiting_var_neg] * model->coeffs[exiting_var_neg].ub;
         }
         model->objective_function += (model->coeffs[exiting_var_neg].ub * model->coeffs[exiting_var_neg].value) * model->objective; 
         // model->coeffs[exiting_var_neg].value *= -1;
@@ -199,7 +199,7 @@ void BoundedSimplex(Model *model) {
       case 3:
 
         for (size_t i = 0; i < n ; i++) {
-          original_RHS[i] -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
+          solution[i] -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
           // model->constraints[i].rhs -= model->constraints[i].lhs_vector[entering_var] * model->coeffs[entering_var].ub;
           // model->constraints[i].lhs_vector[entering_var] *= -1; 
 
@@ -228,7 +228,7 @@ void BoundedSimplex(Model *model) {
     free(B_inv[i]);
   }
   free(B_inv);
-  free(original_RHS);
+  free(solution);
   free(current_RHS);
   free(Simplex_multiplier);
   free(Pivot);
@@ -376,12 +376,12 @@ void TransformBoundedModel(Model *model) {
 }
 
 
-void Bounded_UpdateRhs(Model *model, double *original_RHS, double *current_RHS, double **B) {
+void Bounded_UpdateRhs(Model *model, double *solution, double *current_RHS, double **B) {
   size_t n = model->num_constraints;
   for (int i = 0; i < n; i++) {
     current_RHS[i] = 0.0;
     for (int j = 0; j < n; j++) {
-      current_RHS[i] += B[i][j] * original_RHS[j];
+      current_RHS[i] += B[i][j] * solution[j];
     }
   }
 }

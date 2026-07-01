@@ -24,12 +24,12 @@ void RevisedSimplex(Model *model) {
   size_t n = model->num_constraints;
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
   double **B_inv = Get_BasisInverse(model, model->solver_iterations);
-  double *original_RHS = (double *)malloc(n * sizeof(double));
+  double *solution = (double *)malloc(n * sizeof(double));
   double *Simplex_multiplier = (double *)malloc(n * sizeof(double));
   double *Pivot = (double *)malloc(n * sizeof(double));
 
   for (size_t i = 0; i < n; i++) {
-    original_RHS[i] = model->constraints[i].rhs;
+    solution[i] = model->constraints[i].rhs;
   }
 
   while (termination != 1) {
@@ -63,7 +63,7 @@ void RevisedSimplex(Model *model) {
     if (feasibility_check == model->non_basics_count) {
       printf("Solver loop terminated!\n");
       termination++;
-      Get_ObjectiveFunction(model, original_RHS);
+      Get_ObjectiveFunction(model, solution);
       break;
     }
 
@@ -74,7 +74,7 @@ void RevisedSimplex(Model *model) {
     double best_ratio = DBL_MAX;
     for (size_t i = 0; i < n; i++) {
       if (Pivot[i] <= 1e-6) continue;
-      double ratio = original_RHS[i] / Pivot[i];
+      double ratio = solution[i] / Pivot[i];
       if (ratio < best_ratio && ratio >= 0) {
         best_ratio = ratio;
         exiting_var_idx = i;
@@ -95,14 +95,14 @@ void RevisedSimplex(Model *model) {
       for (size_t i = 0; i < n; i++) free(B_inv[i]);
       free(B_inv);
       B_inv = Get_BasisInverse(model, model->solver_iterations);
-      for (size_t i = 0; i < n; i++) original_RHS[i] = model->constraints[i].rhs;
-      UpdateRhs(model, original_RHS, B_inv);
+      for (size_t i = 0; i < n; i++) solution[i] = model->constraints[i].rhs;
+      UpdateRhs(model, solution, B_inv);
     } else {
       for (size_t i = 0; i < n; i++) {
         if (i == (size_t)exiting_var_idx) {
-          original_RHS[i] = best_ratio;
+          solution[i] = best_ratio;
         } else {
-          original_RHS[i] -= Pivot[i] * best_ratio;
+          solution[i] -= Pivot[i] * best_ratio;
         }
       }
     }
@@ -112,7 +112,7 @@ void RevisedSimplex(Model *model) {
 
   for (size_t i = 0; i < n; i++) free(B_inv[i]);
   free(B_inv);
-  free(original_RHS);
+  free(solution);
   free(Simplex_multiplier);
   free(Pivot);
 }
@@ -156,7 +156,7 @@ void RevisedSimplex_Debug(Model *model) {
 
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
 
-  double *original_RHS = (double *)malloc(n * sizeof(double));
+  double *solution = (double *)malloc(n * sizeof(double));
   double *Simplex_multiplier = (double *)malloc(n * sizeof(double));
   double *Pivot = (double *)malloc(n * sizeof(double));
 
@@ -168,11 +168,11 @@ void RevisedSimplex_Debug(Model *model) {
   double **B_inv = Get_BasisInverse(model, model->solver_iterations);
 
   for (size_t i = 0; i < n; i++) {
-    original_RHS[i] = model->constraints[i].rhs;
+    solution[i] = model->constraints[i].rhs;
   }
   printf("Initial RHS vector (B^-1 * b):\n");
   for (size_t i = 0; i < n; i++) {
-    printf(" %f ", original_RHS[i]);
+    printf(" %f ", solution[i]);
   }
   printf("\n");
 
@@ -208,7 +208,7 @@ void RevisedSimplex_Debug(Model *model) {
 
     printf("Current RHS vector:\n");
     for (size_t i = 0; i < n; i++) {
-      printf(" %f ", original_RHS[i]);
+      printf(" %f ", solution[i]);
     }
     printf("\n");
 
@@ -239,7 +239,7 @@ void RevisedSimplex_Debug(Model *model) {
     if (feasibility_check == model->non_basics_count) {
       printf("Solver loop terminated!\n");
       termination++;
-      Get_ObjectiveFunction(model, original_RHS);
+      Get_ObjectiveFunction(model, solution);
       break;
     }
 
@@ -253,7 +253,7 @@ void RevisedSimplex_Debug(Model *model) {
 
     for (size_t i = 0; i < n; i++) {
       if (Pivot[i] <= 1e-6) continue;
-      double ratio = original_RHS[i] / Pivot[i];
+      double ratio = solution[i] / Pivot[i];
       printf("Ratio of variable %i is %f which has a pivot value of %f \n",
              model->basics_vector[i], ratio, Pivot[i]);
       if (ratio < best_ratio && ratio >= 0) {
@@ -295,21 +295,21 @@ void RevisedSimplex_Debug(Model *model) {
       free(B_inv);
       B_inv = Get_BasisInverse(model, model->solver_iterations);
       printf("Resyncing RHS vector exactly (drift correction):\n");
-      for (size_t i = 0; i < n; i++) original_RHS[i] = model->constraints[i].rhs;
-      UpdateRhs(model, original_RHS, B_inv);
+      for (size_t i = 0; i < n; i++) solution[i] = model->constraints[i].rhs;
+      UpdateRhs(model, solution, B_inv);
     } else {
       for (size_t i = 0; i < n; i++) {
         if (i == (size_t)exiting_var_idx) {
-          original_RHS[i] = best_ratio;
+          solution[i] = best_ratio;
         } else {
-          original_RHS[i] -= Pivot[i] * best_ratio;
+          solution[i] -= Pivot[i] * best_ratio;
         }
       }
     }
 
     printf("RHS vector after update:\n");
     for (size_t i = 0; i < n; i++) {
-      printf(" %f ", original_RHS[i]);
+      printf(" %f ", solution[i]);
     }
     printf("\n");
 
@@ -323,7 +323,7 @@ void RevisedSimplex_Debug(Model *model) {
 
   for (size_t i = 0; i < n; i++) free(B_inv[i]);
   free(B_inv);
-  free(original_RHS);
+  free(solution);
   free(Simplex_multiplier);
   free(Pivot);
 }

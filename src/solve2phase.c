@@ -80,12 +80,12 @@ int SimplexLoop(Model *model, double *solution_out) {
   int MAX_ITERATIONS = (model->num_vars * model->num_constraints) + 1;
   double **B_inv = Get_BasisInverse(model, model->solver_iterations);
 
-  double *original_RHS = (double *)malloc(n * sizeof(double));
+  double *solution = (double *)malloc(n * sizeof(double));
   double *Simplex_multiplier = (double *)malloc(n * sizeof(double));
   double *Pivot = (double *)malloc(n * sizeof(double));
 
   for (size_t i = 0; i < n; i++)
-    original_RHS[i] = model->constraints[i].rhs;
+    solution[i] = model->constraints[i].rhs;
 
   int result = 0;
 
@@ -119,7 +119,7 @@ int SimplexLoop(Model *model, double *solution_out) {
     if (feasibility_check == model->non_basics_count) {
       if (solution_out)
         for (size_t i = 0; i < n; i++)
-          solution_out[i] = original_RHS[i];
+          solution_out[i] = solution[i];
       result = 1;
       break;
     }
@@ -131,7 +131,7 @@ int SimplexLoop(Model *model, double *solution_out) {
 
     for (size_t i = 0; i < n; i++) {
       if (Pivot[i] <= 1e-6) continue;
-      double ratio = original_RHS[i] / Pivot[i];
+      double ratio = solution[i] / Pivot[i];
       if (ratio < best_ratio && ratio >= 0) {
         best_ratio = ratio;
         exiting_var_idx = i;
@@ -154,14 +154,14 @@ int SimplexLoop(Model *model, double *solution_out) {
       free(B_inv);
       B_inv = Get_BasisInverse(model, model->solver_iterations);
       for (size_t i = 0; i < n; i++)
-        original_RHS[i] = model->constraints[i].rhs;
-      UpdateRhs(model, original_RHS, B_inv);
+        solution[i] = model->constraints[i].rhs;
+      UpdateRhs(model, solution, B_inv);
     } else {
       for (size_t i = 0; i < n; i++) {
         if (i == (size_t)exiting_var_idx)
-          original_RHS[i] = best_ratio;
+          solution[i] = best_ratio;
         else
-          original_RHS[i] -= Pivot[i] * best_ratio;
+          solution[i] -= Pivot[i] * best_ratio;
       }
     }
 
@@ -172,6 +172,6 @@ int SimplexLoop(Model *model, double *solution_out) {
   free(B_inv);
   free(Simplex_multiplier);
   free(Pivot);
-  free(original_RHS);
+  free(solution);
   return result;
 }

@@ -87,7 +87,7 @@ void BoundedSimplex(Model* model);
 void TransformBoundedModel(Model* model); // Bounded variable simplex will have a different procedure
 void Get_ObjectiveFunctionBounded(Model *model, double *rhs_vector);
 void Update_BasisInverse(double **B_inv, double *Pivot, int pivot_row, int n); 
-void Bounded_UpdateRhs(Model *model, double *original_RHS, double *current_RHS, double **B); 
+void Bounded_UpdateRhs(Model *model, double *solution, double *current_RHS, double **B); 
 
 
 // Two-Phase code

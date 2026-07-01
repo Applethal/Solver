@@ -4,9 +4,6 @@
 # About
 In this code I attempted to write a mathematical solver that utilizes the Revised Simplex Algorithm by George B. Dantzig (1953) <del>using the Big-M method</del>. The model input should be written (In general form) as such:
 
-# How to contribute 
-
-Test this with as many LP models please. So far I gave it nothing but LPs from linear algebra/Operation research text books and internet forums. Be sure to report any issues if necessary.
 
 ```
 OBJECTIVE, Variables count, Constraints count
@@ -118,4 +115,7 @@ Where `filepath`is the `.csv` file path, `-Debug` is an optional flag that can b
 *Note*: By default the solver runs the Two-phase method scheme, which is slower since it solves twice. If you wish to use the Big M method (Artificials get max(coeffs) * 2 as a value), comment-out the function Solve_BigM and comment Solve in lines `86-87` before compiling. The Debug mode will run using the Big M method. The regular solving will use Two-Pass. I have yet to implement an additional flag to switch between the two modes for the sake of consistency. 
 
 
+# How to contribute 
+
+Test this with as many LP models please. So far I gave it nothing but LPs from linear algebra/Operation research text books and internet forums. Be sure to report any issues if necessary.
 
